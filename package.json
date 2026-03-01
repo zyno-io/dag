@@ -1,0 +1,28 @@
+{
+    "name": "@zyno-io/dag-root",
+    "version": "0.0.1",
+    "private": true,
+    "license": "MIT",
+    "author": "Zyno Consulting <support@zyno.io>",
+    "workspaces": [
+        "packages/shared",
+        "packages/server",
+        "packages/cli"
+    ],
+    "scripts": {
+        "build": "yarn workspaces foreach -A run build",
+        "clean": "yarn workspaces foreach -A run clean",
+        "docs:dev": "vitepress dev docs",
+        "docs:build": "vitepress build docs",
+        "docs:preview": "vitepress preview docs",
+        "lint": "oxlint --fix --fix-suggestions --fix-dangerously",
+        "format": "oxfmt --write ."
+    },
+    "devDependencies": {
+        "lefthook": "^2.1.1",
+        "oxfmt": "^0.35.0",
+        "oxlint": "^1.50.0",
+        "vitepress": "^1.6.4"
+    },
+    "packageManager": "yarn@4.12.0"
+}

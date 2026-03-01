@@ -1,0 +1,16 @@
+{
+    "tabWidth": 4,
+    "singleQuote": true,
+    "printWidth": 150,
+    "arrowParens": "avoid",
+    "trailingComma": "none",
+    "ignorePatterns": ["**/templates/*.yaml"],
+    "overrides": [
+        {
+            "files": ["*.yaml", "*.yml"],
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
+}

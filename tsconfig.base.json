@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "sourceMap": true,
+        "declaration": true,
+        "experimentalDecorators": true,
+        "moduleResolution": "nodenext",
+        "target": "ESNext",
+        "module": "NodeNext",
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "incremental": false,
+        "forceConsistentCasingInFileNames": true,
+        "isolatedModules": true
+    },
+    "reflection": true
+}

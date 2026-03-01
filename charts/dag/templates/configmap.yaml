@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: { { include "dag.fullname" . } }
+  labels: { { - include "dag.labels" . | nindent 4 } }
+data:
+  APP_ENV: { { .Values.config.appEnv | quote } }
+  PORT: '3000'
+  PG_HOST: { { .Values.postgres.host | quote } }
+  PG_PORT: { { .Values.postgres.port | quote } }
+  PG_USER: { { .Values.postgres.user | quote } }
+  PG_DATABASE: { { .Values.postgres.database | quote } }
+  REDIS_HOST: { { .Values.redis.host | quote } }
+  REDIS_PORT: { { .Values.redis.port | quote } }
+  BULL_REDIS_HOST: { { .Values.bull.redisHost | quote } }
+  BULL_REDIS_PORT: { { .Values.bull.redisPort | quote } }
+  BULL_QUEUE: { { .Values.bull.queue | quote } }
+  BROADCAST_REDIS_HOST: { { .Values.broadcast.redisHost | quote } }
+  BROADCAST_REDIS_PORT: { { .Values.broadcast.redisPort | quote } }
+  MUTEX_MODE: { { .Values.config.mutexMode | quote } }
+  DEPLOY_MONITOR_TIMEOUT_SECS: { { .Values.config.deployMonitorTimeoutSecs | quote } }
