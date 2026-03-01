@@ -1,0 +1,35 @@
+{
+    "name": "@zyno-io/dag",
+    "version": "0.1.0",
+    "private": true,
+    "main": "./dist/bootstrap.js",
+    "scripts": {
+        "clean": "dksf-dev clean",
+        "build": "dksf-dev build",
+        "dev": "PORT=${PORT:-3000} dksf-dev run",
+        "migrate": "dksf-dev migrate",
+        "migrate:create": "dksf-dev migrate:create",
+        "migrate:reset": "dksf-dev migrate:reset",
+        "test": "dksf-dev test",
+        "test:debug": "dksf-dev test --debug",
+        "postinstall": "dksf-install"
+    },
+    "dependencies": {
+        "@deepkit/app": "1.0.19",
+        "@deepkit/http": "1.0.19",
+        "@deepkit/logger": "1.0.19",
+        "@deepkit/orm": "1.0.19",
+        "@deepkit/type": "1.0.19",
+        "@deepkit/type-compiler": "1.0.19",
+        "@kubernetes/client-node": "^1.4.0",
+        "@zyno-io/dag-shared": "workspace:*",
+        "@zyno-io/dk-server-foundation": "^26.302.1040",
+        "simple-git": "^3.32.3",
+        "tar": "^7.5.9"
+    },
+    "devDependencies": {
+        "@types/node": "^25.3.3",
+        "typescript": "~5.9"
+    },
+    "packageManager": "yarn@4.12.0"
+}

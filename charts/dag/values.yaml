@@ -1,0 +1,56 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/zyno-io/dag/server
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ''
+
+imagePullSecrets: []
+nameOverride: ''
+fullnameOverride: ''
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ''
+
+postgres:
+  host: ''
+  port: 5432
+  user: dag
+  password: ''
+  database: dag
+  ssl: false
+  sslRejectUnauthorized: true
+
+config:
+  appEnv: production
+  deployMonitorTimeoutSecs: 300
+  cryptoSecret: ''
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: ''
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+  hosts:
+    - host: dag.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+deployment:
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}

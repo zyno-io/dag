@@ -1,0 +1,18 @@
+{
+    "name": "@zyno-io/dag-shared",
+    "version": "0.1.0",
+    "private": true,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@deepkit/type": "1.0.19"
+    },
+    "devDependencies": {
+        "@deepkit/type-compiler": "1.0.19",
+        "typescript": "~5.9"
+    }
+}

@@ -1,0 +1,52 @@
+name: Chart
+
+on:
+  push:
+    branches: [main]
+    paths: ['charts/**']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read chart version
+        id: chart
+        run: |
+          VERSION=$(grep '^version:' charts/dag/Chart.yaml | awk '{print $2}')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_DEPLOY_PAT }}
+        run: |
+          TAG="dag-${{ steps.chart.outputs.version }}"
+          if gh release view "$TAG" --repo zyno-io/charts &>/dev/null; then
+            echo "Release $TAG already exists, skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Helm
+        if: steps.check.outputs.exists == 'false'
+        uses: azure/setup-helm@v4
+
+      - name: Package chart
+        if: steps.check.outputs.exists == 'false'
+        run: helm package charts/dag
+
+      - name: Create release on zyno-io/charts
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_DEPLOY_PAT }}
+        run: |
+          TAG="dag-${{ steps.chart.outputs.version }}"
+          gh release create "$TAG" \
+            --repo zyno-io/charts \
+            --title "dag ${{ steps.chart.outputs.version }}" \
+            --notes "DAG Helm chart v${{ steps.chart.outputs.version }}" \
+            dag-${{ steps.chart.outputs.version }}.tgz

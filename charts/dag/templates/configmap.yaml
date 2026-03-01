@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dag.fullname" . }}
+  labels: {{- include "dag.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+data:
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  PORT: '3000'
+  PG_HOST: {{ .Values.postgres.host | quote }}
+  PG_PORT: {{ .Values.postgres.port | quote }}
+  PG_USER: {{ .Values.postgres.user | quote }}
+  PG_DATABASE: {{ .Values.postgres.database | quote }}
+  PG_SSL: {{ .Values.postgres.ssl | quote }}
+  PG_SSL_REJECT_UNAUTHORIZED: {{ .Values.postgres.sslRejectUnauthorized | quote }}
+  MUTEX_MODE: local
+  DEPLOY_MONITOR_TIMEOUT_SECS: {{ .Values.config.deployMonitorTimeoutSecs | quote }}

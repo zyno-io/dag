@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dag
+          POSTGRES_PASSWORD: dag
+          POSTGRES_DB: dag_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@zyno.io"
+          git config --global user.name "CI"
+          git config --global init.defaultBranch main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared
+        run: yarn workspace @zyno-io/dag-shared build
+
+      - name: Build server
+        run: yarn workspace @zyno-io/dag build
+
+      - name: Build CLI
+        run: yarn workspace @zyno-io/dag-cli build
+
+      - name: Test server
+        run: yarn workspace @zyno-io/dag test
+        env:
+          PG_HOST: localhost
+          PG_PORT: 5432
+          PG_USER: dag
+          PG_PASSWORD_SECRET: dag
+          PG_DATABASE: dag_test
+          MUTEX_MODE: local
+          CRYPTO_SECRET: test-crypto-secret-change-me-32c
+          DEPLOY_MONITOR_TIMEOUT_SECS: 300
+
+      - name: Test CLI
+        run: yarn workspace @zyno-io/dag-cli test
+
+  auto-tag:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_DEPLOY_PAT }}
+
+      - name: Check for version changes
+        id: version-check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tags found. Will create v$VERSION."
+            echo "should_tag=true" >> "$GITHUB_OUTPUT"
+          elif [ "$LATEST_TAG" != "v$VERSION" ]; then
+            echo "Version changed (latest tag: $LATEST_TAG, current: v$VERSION). Will create v$VERSION."
+            echo "should_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No version change detected (latest tag: $LATEST_TAG)."
+            echo "should_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sync version across packages
+        if: steps.version-check.outputs.should_tag == 'true'
+        run: |
+          bash scripts/sync-version.sh
+          git config user.email "ci@zyno.io"
+          git config user.name "CI"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: sync version ${{ steps.version-check.outputs.version }}"
+            git push origin main
+          fi
+
+      - name: Create and push tag
+        if: steps.version-check.outputs.should_tag == 'true'
+        run: |
+          TAG="v${{ steps.version-check.outputs.version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+  docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build docs
+        run: yarn docs:build
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
