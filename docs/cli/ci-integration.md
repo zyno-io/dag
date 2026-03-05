@@ -20,10 +20,10 @@ deploy:
   stage: deploy
   image: ghcr.io/zyno-io/dag/cli:latest
   script:
-    - dag-inject-values chart/values.yaml --set image.tag=$CI_COMMIT_SHA
     - dag-deploy ./chart
       --server https://dag.example.com
       --deploy-version $CI_COMMIT_SHA
+      --set image.tag=$CI_COMMIT_SHA
 ```
 
 In GitLab CI, `dag-deploy` auto-detects:
@@ -55,14 +55,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject values
-        run: dag-inject-values chart/values.yaml --set image.tag=${{ github.sha }}
-
       - name: Deploy
         run: |
           dag-deploy ./chart \
             --server https://dag.example.com \
-            --deploy-version ${{ github.sha }}
+            --deploy-version ${{ github.sha }} \
+            --set image.tag=${{ github.sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -88,7 +86,7 @@ Instead of CLI flags, you can set environment variables. This is useful for conf
 
 ## Using the Docker Image
 
-The `ghcr.io/zyno-io/dag/cli` image contains both `dag-deploy` and `dag-inject-values`. Use it as your CI job image:
+The `ghcr.io/zyno-io/dag/cli` image contains `dag-deploy`. Use it as your CI job image:
 
 ```yaml
 # GitLab CI

@@ -35,15 +35,25 @@ If `Chart.yaml` contains a `version:` line, DAG replaces it with the `--deploy-v
 
 ## Injecting Values
 
-Use `dag-inject-values` to modify `values.yaml` before deploying. A common pattern is to set the image tag to the current commit SHA:
+Use `--values-file`, `--set`, `--set-json`, and `--set-file` to modify the chart's base `values.yaml` at deploy time. When `--values-file` is provided, the specified file is deep-merged into the chart's `values.yaml` (nested objects are merged, scalars and arrays from the overlay win). Then `--set`, `--set-json`, and `--set-file` are applied on top. Use `--set-json` for typed values (numbers, booleans, objects, arrays).
+
+A common pattern is to set the image tag to the current commit SHA:
 
 ```sh
-dag-inject-values charts/my-app/values.yaml \
-    --set image.tag=$CI_COMMIT_SHA
-
 dag-deploy ./charts/my-app \
     --server https://dag.example.com \
-    --deploy-version $CI_COMMIT_SHA
+    --deploy-version $CI_COMMIT_SHA \
+    --set image.tag=$CI_COMMIT_SHA
+```
+
+For environment-specific overrides, use `--values-file`:
+
+```sh
+dag-deploy ./charts/my-app \
+    --server https://dag.example.com \
+    --deploy-version $CI_COMMIT_SHA \
+    --values-file values-production.yaml \
+    --set image.tag=$CI_COMMIT_SHA
 ```
 
 ## Chart Structure

@@ -3720,7 +3720,6 @@ __metadata:
     typescript: "npm:~5.9"
   bin:
     dag-deploy: ./dist/index.js
-    dag-inject-values: ./dist/inject-values.js
   languageName: unknown
   linkType: soft
 

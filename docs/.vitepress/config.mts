@@ -32,7 +32,6 @@ export default defineConfig({
                 text: 'CLI',
                 items: [
                     { text: 'dag-deploy', link: '/cli/dag-deploy' },
-                    { text: 'dag-inject-values', link: '/cli/dag-inject-values' },
                     { text: 'CI Integration', link: '/cli/ci-integration' }
                 ]
             },

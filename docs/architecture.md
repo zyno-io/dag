@@ -27,7 +27,7 @@ The project is a monorepo with three packages:
 | ----------------- | --------------------------------------------- |
 | `packages/shared` | Shared TypeScript types and enums             |
 | `packages/server` | HTTP API server                               |
-| `packages/cli`    | CLI tools (`dag-deploy`, `dag-inject-values`) |
+| `packages/cli`    | CLI tool (`dag-deploy`)                       |
 
 ## Request Flow
 

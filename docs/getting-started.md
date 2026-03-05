@@ -73,7 +73,7 @@ Requires Node.js 22+ and PostgreSQL 16+. See [Server Configuration](./server/con
 
 ## Install the CLI
 
-The CLI (`dag-deploy`, `dag-inject-values`) runs in your CI pipeline.
+The CLI (`dag-deploy`) runs in your CI pipeline.
 
 ### Docker (for CI containers)
 
