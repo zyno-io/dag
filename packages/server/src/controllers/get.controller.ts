@@ -60,7 +60,7 @@ export class GetController {
     }
 
     @http.POST('values')
-    async getValues(body: HttpBody<GetBody>): Promise<Record<string, unknown>> {
+    async getValues(body: HttpBody<GetBody>, response: HttpResponse): Promise<void> {
         const { repoUrl, jobId, jobToken } = body;
 
         if (!repoUrl || !jobId || !jobToken) {
@@ -70,7 +70,7 @@ export class GetController {
         const { appEnvironment } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken);
         const iac = await IacEntity.query().filterField('id', appEnvironment.iacId).findOne();
 
-        return this.iacRepoService.withRepoLock(iac, appEnvironment.iacBranch, async localPath => {
+        const values = await this.iacRepoService.withRepoLock(iac, appEnvironment.iacBranch, async localPath => {
             const valuesDir = resolveIacPath(localPath, appEnvironment.iacPath);
             const valuesPath = path.join(valuesDir, 'values.yaml');
             let content: string;
@@ -92,7 +92,10 @@ export class GetController {
             if (parsed === null || parsed === undefined || typeof parsed !== 'object' || Array.isArray(parsed)) {
                 return {};
             }
-            return parsed as Record<string, unknown>;
+            return parsed;
         });
+
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify(values));
     }
 }
