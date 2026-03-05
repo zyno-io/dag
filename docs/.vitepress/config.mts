@@ -32,6 +32,8 @@ export default defineConfig({
                 text: 'CLI',
                 items: [
                     { text: 'dag-deploy', link: '/cli/dag-deploy' },
+                    { text: 'dag-get-chart', link: '/cli/dag-get-chart' },
+                    { text: 'dag-get-values', link: '/cli/dag-get-values' },
                     { text: 'CI Integration', link: '/cli/ci-integration' }
                 ]
             },

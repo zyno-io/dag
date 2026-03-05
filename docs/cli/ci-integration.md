@@ -71,6 +71,41 @@ The CLI auto-detects:
 - **Job ID** from `GITHUB_RUN_ID`
 - **Job Token** from `GITHUB_TOKEN` or `ACTIONS_RUNTIME_TOKEN`
 
+## Fetching Deployed Chart & Values
+
+You can retrieve the currently deployed chart or values from the IaC repository in any CI job. This is useful for comparing changes, extracting configuration, or building on top of the current deployment state.
+
+### Downloading the Chart
+
+```yaml
+# GitLab CI
+fetch-chart:
+  stage: prepare
+  image: ghcr.io/zyno-io/dag/cli:latest
+  script:
+    - dag-get-chart ./deployed-chart.tgz
+      --server https://dag.example.com
+  artifacts:
+    paths:
+      - deployed-chart.tgz
+```
+
+### Fetching Values as JSON
+
+```yaml
+# GitLab CI
+fetch-values:
+  stage: prepare
+  image: ghcr.io/zyno-io/dag/cli:latest
+  script:
+    - dag-get-values --server https://dag.example.com > current-values.json
+  artifacts:
+    paths:
+      - current-values.json
+```
+
+Both `dag-get-chart` and `dag-get-values` use the same CI auto-detection as `dag-deploy` — no extra credentials are needed.
+
 ## Environment Variables
 
 Instead of CLI flags, you can set environment variables. This is useful for configuring DAG once in your CI project settings:
@@ -86,7 +121,7 @@ Instead of CLI flags, you can set environment variables. This is useful for conf
 
 ## Using the Docker Image
 
-The `ghcr.io/zyno-io/dag/cli` image contains `dag-deploy`. Use it as your CI job image:
+The `ghcr.io/zyno-io/dag/cli` image contains `dag-deploy`, `dag-get-chart`, and `dag-get-values`. Use it as your CI job image:
 
 ```yaml
 # GitLab CI

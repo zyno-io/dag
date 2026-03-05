@@ -32,6 +32,68 @@ Submit a new deployment.
 | `401`  | Job token verification failed                                                         |
 | `404`  | No app configured for the given repo URL, or no environment configured for the branch |
 
+## POST /api/get/chart
+
+Download the currently deployed chart from the IaC repository as a gzipped tarball.
+
+### Request
+
+`Content-Type: application/json`
+
+| Field      | Type     | Required | Description                 |
+| ---------- | -------- | -------- | --------------------------- |
+| `repoUrl`  | `string` | Yes      | Git repository URL          |
+| `jobId`    | `string` | Yes      | CI job ID                   |
+| `jobToken` | `string` | Yes      | CI job authentication token |
+
+### Response
+
+`Content-Type: application/gzip`
+
+The response body is a `.tgz` archive of the chart directory.
+
+### Errors
+
+| Status | Condition                                                                             |
+| ------ | ------------------------------------------------------------------------------------- |
+| `400`  | Missing required fields, or IaC path resolves outside the repository                  |
+| `401`  | Job token verification failed                                                         |
+| `404`  | No app configured for the given repo URL, no environment for the branch, or chart directory not found |
+
+## POST /api/get/values
+
+Fetch the currently deployed `values.yaml` from the IaC repository, returned as JSON.
+
+### Request
+
+`Content-Type: application/json`
+
+| Field      | Type     | Required | Description                 |
+| ---------- | -------- | -------- | --------------------------- |
+| `repoUrl`  | `string` | Yes      | Git repository URL          |
+| `jobId`    | `string` | Yes      | CI job ID                   |
+| `jobToken` | `string` | Yes      | CI job authentication token |
+
+### Response
+
+```json
+{
+    "replicaCount": 3,
+    "image": {
+        "repository": "my-app",
+        "tag": "v1.2.3"
+    }
+}
+```
+
+### Errors
+
+| Status | Condition                                                                             |
+| ------ | ------------------------------------------------------------------------------------- |
+| `400`  | Missing required fields, IaC path resolves outside the repository, or malformed YAML  |
+| `401`  | Job token verification failed                                                         |
+| `404`  | No app configured for the given repo URL, no environment for the branch, or `values.yaml` not found |
+
 ## GET /api/deployments/:id/events
 
 Subscribe to real-time deployment status updates via Server-Sent Events (SSE).
