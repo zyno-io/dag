@@ -34,7 +34,6 @@ describe('IacRepoService', () => {
 
         const config = new AppConfig();
         config.DATA_DIR = path.join(tempDir, 'data');
-        config.MUTEX_MODE = 'local';
 
         const chartService = new ChartService();
         const logger = { log: () => {}, warn: () => {}, error: () => {} } as any;

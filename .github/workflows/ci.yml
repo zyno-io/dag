@@ -58,7 +58,6 @@ jobs:
           PG_USER: dag
           PG_PASSWORD_SECRET: dag
           PG_DATABASE: dag_test
-          MUTEX_MODE: local
           CRYPTO_SECRET: test-crypto-secret-change-me-32c
           DEPLOY_MONITOR_TIMEOUT_SECS: 300
 

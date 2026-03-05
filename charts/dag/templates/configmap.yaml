@@ -16,5 +16,4 @@ data:
   PG_DATABASE: {{ .Values.postgres.database | quote }}
   PG_SSL: {{ .Values.postgres.ssl | quote }}
   PG_SSL_REJECT_UNAUTHORIZED: {{ .Values.postgres.sslRejectUnauthorized | quote }}
-  MUTEX_MODE: local
   DEPLOY_MONITOR_TIMEOUT_SECS: {{ .Values.config.deployMonitorTimeoutSecs | quote }}
