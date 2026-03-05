@@ -16,8 +16,9 @@ import { JobTokenVerificationError } from '../errors';
 import { AppEntity } from '../entities/app.entity';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { DeploymentEntity } from '../entities/deployment.entity';
+import { IacEntity } from '../entities/iac.entity';
 import { DeploymentLifecycleListener } from '../services/deployment-lifecycle.listener';
-import { DeploymentService, getDeploymentChannel } from '../services/deployment.service';
+import { DeploymentService, buildCommitUrl, getDeploymentChannel } from '../services/deployment.service';
 import { GitProviderService } from '../services/git-provider.service';
 
 interface DeployBody {
@@ -116,16 +117,32 @@ export class DeployController {
             return;
         }
 
+        // Resolve commit URL if a commit SHA exists on this deployment
+        let commitUrl: string | undefined;
+        if (deployment.commitSha) {
+            const appEnv = await AppEnvironmentEntity.query().filterField('id', deployment.appEnvironmentId).findOneOrUndefined();
+            if (appEnv) {
+                const iac = await IacEntity.query().filterField('id', appEnv.iacId).findOneOrUndefined();
+                if (iac) {
+                    commitUrl = buildCommitUrl(iac.repoUrl, deployment.commitSha);
+                }
+            }
+        }
+
         // If already in terminal state, send final event and close
         if (deployment.status === 'deployed' || deployment.status === 'failed') {
-            const data = JSON.stringify({ status: deployment.status, message: deployment.statusMessage ?? '' });
+            const event: Record<string, unknown> = { status: deployment.status, message: deployment.statusMessage ?? '' };
+            if (commitUrl) event.commitUrl = commitUrl;
+            const data = JSON.stringify(event);
             response.write(`event: status\ndata: ${data}\n\n`);
             response.end();
             return;
         }
 
         // Send current status
-        const currentData = JSON.stringify({ status: deployment.status, message: deployment.statusMessage ?? '' });
+        const currentEvent: Record<string, unknown> = { status: deployment.status, message: deployment.statusMessage ?? '' };
+        if (commitUrl) currentEvent.commitUrl = commitUrl;
+        const currentData = JSON.stringify(currentEvent);
         response.write(`event: status\ndata: ${currentData}\n\n`);
 
         // Subscribe to local event channel for updates

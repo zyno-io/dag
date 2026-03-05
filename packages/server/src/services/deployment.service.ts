@@ -12,6 +12,20 @@ import { ChartService } from './chart.service';
 import { IacRepoService } from './iac-repo.service';
 import { K8sMonitorService } from './k8s-monitor.service';
 
+export function buildCommitUrl(repoUrl: string, sha: string): string | undefined {
+    const base = repoUrl.replace(/\.git\/?$/i, '').replace(/\/+$/, '');
+    try {
+        const url = new URL(base);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+        if (url.hostname.includes('gitlab')) {
+            return `${base}/-/commit/${sha}`;
+        }
+        return `${base}/commit/${sha}`;
+    } catch {
+        return undefined;
+    }
+}
+
 const deploymentEmitter = new EventEmitter();
 
 export function getDeploymentChannel(deploymentId: string) {
@@ -21,7 +35,9 @@ export function getDeploymentChannel(deploymentId: string) {
         },
         subscribe(fn: (data: DeploymentStatusEvent) => void) {
             deploymentEmitter.on(deploymentId, fn);
-            return () => { deploymentEmitter.off(deploymentId, fn); };
+            return () => {
+                deploymentEmitter.off(deploymentId, fn);
+            };
         }
     };
 }
@@ -36,6 +52,7 @@ export class DeploymentService {
 
     async processDeployment(deploymentId: string, chartBuffer: Buffer): Promise<void> {
         const deployment = await DeploymentEntity.query().filterField('id', deploymentId).findOne();
+        let commitUrl: string | undefined;
 
         try {
             const appEnvironment = await AppEnvironmentEntity.query().filterField('id', deployment.appEnvironmentId).findOne();
@@ -62,37 +79,45 @@ export class DeploymentService {
             });
 
             deployment.commitSha = commitSha;
-            await this.updateStatus(deployment, 'pushed', `Chart pushed to IAC repo (${commitSha.substring(0, 8)})`);
+            commitUrl = buildCommitUrl(iac.repoUrl, commitSha);
+            await this.updateStatus(deployment, 'pushed', `Chart pushed to IAC repo (${commitSha.substring(0, 8)})`, commitUrl);
 
             // Step 3: Monitor K8s deployment
-            await this.updateStatus(deployment, 'monitoring', `Watching deployment on cluster ${cluster.name}...`);
+            await this.updateStatus(deployment, 'monitoring', `Watching deployment on cluster ${cluster.name}...`, commitUrl);
 
-            await this.k8sMonitorService.watchDeployment(cluster, appEnvironment, {
-                onStatusChange: async message => {
-                    await this.publishStatus(deployment, 'monitoring', message);
-                }
-            }, preDeploySnapshot);
+            await this.k8sMonitorService.watchDeployment(
+                cluster,
+                appEnvironment,
+                {
+                    onStatusChange: async message => {
+                        await this.publishStatus(deployment, 'monitoring', message, commitUrl);
+                    }
+                },
+                preDeploySnapshot
+            );
 
-            await this.updateStatus(deployment, 'deployed', 'Deployment completed successfully');
+            await this.updateStatus(deployment, 'deployed', 'Deployment completed successfully', commitUrl);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Deployment ${deploymentId} failed:`, err);
-            await this.updateStatus(deployment, 'failed', message);
+            await this.updateStatus(deployment, 'failed', message, commitUrl);
             throw err;
         }
     }
 
-    private async updateStatus(deployment: DeploymentEntity, status: DeploymentStatus, message: string): Promise<void> {
+    private async updateStatus(deployment: DeploymentEntity, status: DeploymentStatus, message: string, commitUrl?: string): Promise<void> {
         deployment.status = status;
         deployment.statusMessage = message.length > 255 ? message.substring(0, 252) + '...' : message;
         deployment.updatedAt = new Date();
         await deployment.save();
 
-        await this.publishStatus(deployment, status, message);
+        await this.publishStatus(deployment, status, message, commitUrl);
     }
 
-    private async publishStatus(deployment: DeploymentEntity, status: DeploymentStatus, message: string): Promise<void> {
+    private async publishStatus(deployment: DeploymentEntity, status: DeploymentStatus, message: string, commitUrl?: string): Promise<void> {
         const channel = getDeploymentChannel(deployment.id);
-        channel.publish({ status, message });
+        const event: DeploymentStatusEvent = { status, message };
+        if (commitUrl) event.commitUrl = commitUrl;
+        channel.publish(event);
     }
 }

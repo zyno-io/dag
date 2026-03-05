@@ -16,6 +16,7 @@ export class DeploymentDisplay {
     private spinner: Ora;
     private isTTY: boolean;
     private lastMessage: string = '';
+    private commitUrl: string | undefined;
 
     constructor() {
         this.isTTY = !!process.stderr.isTTY;
@@ -29,10 +30,20 @@ export class DeploymentDisplay {
     update(event: DeploymentStatusEvent): void {
         const colorFn = STATUS_COLORS[event.status] ?? chalk.white;
 
+        if (event.commitUrl) {
+            this.commitUrl = event.commitUrl;
+        }
+
         if (event.status === 'deployed') {
             this.spinner.succeed(colorFn(event.message));
+            if (this.commitUrl) {
+                console.error(`  IaC commit: ${this.commitUrl}`);
+            }
         } else if (event.status === 'failed') {
             this.spinner.fail(colorFn(event.message));
+            if (this.commitUrl) {
+                console.error(`  IaC commit: ${this.commitUrl}`);
+            }
         } else {
             const text = `[${event.status}] ${event.message}`;
             this.spinner.text = colorFn(text);

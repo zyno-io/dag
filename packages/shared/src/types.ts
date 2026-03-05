@@ -7,4 +7,5 @@ export interface DeployResponse {
 export interface DeploymentStatusEvent {
     status: DeploymentStatus;
     message: string;
+    commitUrl?: string;
 }
