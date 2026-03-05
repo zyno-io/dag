@@ -35,7 +35,9 @@ RUN yarn workspaces focus @zyno-io/dag-cli --production
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/packages/cli/dist packages/cli/dist
 
-RUN chmod +x packages/cli/dist/index.js && \
-    ln -s /app/packages/cli/dist/index.js /usr/local/bin/dag-deploy
+RUN chmod +x packages/cli/dist/index.js packages/cli/dist/get-chart.js packages/cli/dist/get-values.js && \
+    ln -s /app/packages/cli/dist/index.js /usr/local/bin/dag-deploy && \
+    ln -s /app/packages/cli/dist/get-chart.js /usr/local/bin/dag-get-chart && \
+    ln -s /app/packages/cli/dist/get-values.js /usr/local/bin/dag-get-values
 
 CMD ["node", "packages/cli/dist/index.js"]
