@@ -3,7 +3,9 @@
     "version": "0.1.0",
     "private": true,
     "bin": {
-        "dag-deploy": "./dist/index.js"
+        "dag-deploy": "./dist/index.js",
+        "dag-get-chart": "./dist/get-chart.js",
+        "dag-get-values": "./dist/get-values.js"
     },
     "main": "./dist/index.js",
     "scripts": {

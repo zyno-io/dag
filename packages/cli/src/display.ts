@@ -30,20 +30,19 @@ export class DeploymentDisplay {
     update(event: DeploymentStatusEvent): void {
         const colorFn = STATUS_COLORS[event.status] ?? chalk.white;
 
-        if (event.commitUrl) {
+        if (event.commitUrl && !this.commitUrl) {
+            this.commitUrl = event.commitUrl;
+            this.spinner.info(`IaC commit: ${event.commitUrl}`);
+            this.spinner = ora({ color: 'cyan' });
+            this.spinner.start();
+        } else if (event.commitUrl) {
             this.commitUrl = event.commitUrl;
         }
 
         if (event.status === 'deployed') {
             this.spinner.succeed(colorFn(event.message));
-            if (this.commitUrl) {
-                console.error(`  IaC commit: ${this.commitUrl}`);
-            }
         } else if (event.status === 'failed') {
             this.spinner.fail(colorFn(event.message));
-            if (this.commitUrl) {
-                console.error(`  IaC commit: ${this.commitUrl}`);
-            }
         } else {
             const text = `[${event.status}] ${event.message}`;
             this.spinner.text = colorFn(text);

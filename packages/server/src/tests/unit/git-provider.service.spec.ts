@@ -19,7 +19,7 @@ describe('GitProviderService', () => {
                     id: 12345,
                     ref: 'main',
                     web_url: 'https://gitlab.example.com/org/app/-/jobs/12345',
-                    pipeline: { project_id: 1 },
+                    pipeline: { project_id: 1, sha: 'abc123def456' },
                     project: { path_with_namespace: 'org/app' }
                 })
             };
@@ -28,8 +28,9 @@ describe('GitProviderService', () => {
             globalThis.fetch = mock.fn(() => Promise.resolve(mockResponse as Response)) as any;
 
             try {
-                const branch = await service.verifyJobAndGetBranch('gitlab', 'https://gitlab.example.com/org/app', '12345', 'test-job-token');
-                assert.equal(branch, 'main');
+                const result = await service.verifyJobAndGetBranch('gitlab', 'https://gitlab.example.com/org/app', '12345', 'test-job-token');
+                assert.equal(result.branch, 'main');
+                assert.equal(result.commitSha, 'abc123def456');
             } finally {
                 globalThis.fetch = originalFetch;
             }

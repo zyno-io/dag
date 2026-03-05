@@ -3720,6 +3720,8 @@ __metadata:
     typescript: "npm:~5.9"
   bin:
     dag-deploy: ./dist/index.js
+    dag-get-chart: ./dist/get-chart.js
+    dag-get-values: ./dist/get-values.js
   languageName: unknown
   linkType: soft
 
@@ -3758,6 +3760,7 @@ __metadata:
     "@types/node": "npm:^25.3.3"
     "@zyno-io/dag-shared": "workspace:*"
     "@zyno-io/dk-server-foundation": "npm:^26.302.1040"
+    js-yaml: "npm:^4.1.1"
     simple-git: "npm:^3.32.3"
     tar: "npm:^7.5.9"
     typescript: "npm:~5.9"

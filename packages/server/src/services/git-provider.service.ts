@@ -1,5 +1,5 @@
 import type { GitProvider } from '@zyno-io/dag-shared';
-import type { IGitProvider } from './providers/git-provider.interface';
+import type { IGitProvider, JobVerificationResult } from './providers/git-provider.interface';
 import { GitLabProvider } from './providers/gitlab.provider';
 import { GitHubProvider } from './providers/github.provider';
 
@@ -17,7 +17,7 @@ export class GitProviderService {
         return impl;
     }
 
-    async verifyJobAndGetBranch(provider: GitProvider, repoUrl: string, jobId: string, jobToken: string): Promise<string> {
+    async verifyJobAndGetBranch(provider: GitProvider, repoUrl: string, jobId: string, jobToken: string): Promise<JobVerificationResult> {
         return this.getProvider(provider).verifyJobAndGetBranch(repoUrl, jobId, jobToken);
     }
 }

@@ -3,7 +3,14 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-export async function packageChart(chartPath: string): Promise<Buffer> {
+const ALLOWED_FILES = new Set(['Chart.yaml', 'Chart.lock', 'values.yaml', 'values.schema.json', '.helmignore']);
+const ALLOWED_DIRS = new Set(['templates', 'charts', 'crds']);
+
+export interface PackageChartOptions {
+    includeAllFiles?: boolean;
+}
+
+export async function packageChart(chartPath: string, options: PackageChartOptions = {}): Promise<Buffer> {
     const resolvedPath = path.resolve(chartPath);
 
     if (!fs.existsSync(resolvedPath)) {
@@ -28,13 +35,24 @@ export async function packageChart(chartPath: string): Promise<Buffer> {
     const tempFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dag-chart-')), 'chart.tgz');
 
     try {
+        const base = path.basename(resolvedPath);
+        const filter = options.includeAllFiles
+            ? undefined
+            : (filePath: string) => {
+                  const rel = filePath.startsWith(base + '/') ? filePath.slice(base.length + 1) : filePath;
+                  if (rel === base || rel === '') return true;
+                  const topLevel = rel.split('/')[0];
+                  return ALLOWED_FILES.has(topLevel) || ALLOWED_DIRS.has(topLevel);
+              };
+
         await tar.create(
             {
                 gzip: true,
                 file: tempFile,
-                cwd: path.dirname(resolvedPath)
+                cwd: path.dirname(resolvedPath),
+                filter
             },
-            [path.basename(resolvedPath)]
+            [base]
         );
 
         return fs.readFileSync(tempFile);

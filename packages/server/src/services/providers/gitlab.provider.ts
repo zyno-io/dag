@@ -1,8 +1,8 @@
-import type { IGitProvider } from './git-provider.interface';
+import type { IGitProvider, JobVerificationResult } from './git-provider.interface';
 import { JobTokenVerificationError } from '../../errors';
 
 export class GitLabProvider implements IGitProvider {
-    async verifyJobAndGetBranch(repoUrl: string, jobId: string, jobToken: string): Promise<string> {
+    async verifyJobAndGetBranch(repoUrl: string, jobId: string, jobToken: string): Promise<JobVerificationResult> {
         // Extract GitLab host from repoUrl
         const url = new URL(repoUrl);
         const gitlabApiUrl = `${url.protocol}//${url.host}/api/v4/job`;
@@ -24,7 +24,7 @@ export class GitLabProvider implements IGitProvider {
             id: number;
             ref: string;
             web_url: string;
-            pipeline: { project_id: number };
+            pipeline: { project_id: number; sha: string };
         };
 
         // Verify the job ID matches
@@ -41,6 +41,6 @@ export class GitLabProvider implements IGitProvider {
             throw new JobTokenVerificationError(`Job belongs to project "${projectPath}", expected "${expectedPath}"`);
         }
 
-        return job.ref;
+        return { branch: job.ref, commitSha: job.pipeline.sha };
     }
 }

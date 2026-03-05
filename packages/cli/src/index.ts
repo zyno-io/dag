@@ -31,6 +31,7 @@ program
     .option('--set <key=value>', 'Set a dotted path to a literal string value (repeatable)', collectKeyValue, [])
     .option('--set-json <key=json>', 'Set a dotted path to a JSON-parsed value (repeatable)', collectKeyValue, [])
     .option('--set-file <key=filepath>', 'Set a dotted path to the contents of a file (repeatable)', collectKeyValue, [])
+    .option('--include-all-files', 'Include all files in the chart directory (by default only standard Helm files are included)')
     .action(async (chartPath: string, options: Record<string, unknown>) => {
         const display = new DeploymentDisplay();
 
@@ -146,7 +147,9 @@ program
             // Package chart
             display.start();
             display.update({ status: 'pending', message: 'Packaging chart...' });
-            const chartBuffer = await packageChart(chartPath);
+            const chartBuffer = await packageChart(chartPath, {
+                includeAllFiles: !!options.includeAllFiles
+            });
 
             // Submit deployment
             display.update({ status: 'pending', message: 'Submitting deployment...' });

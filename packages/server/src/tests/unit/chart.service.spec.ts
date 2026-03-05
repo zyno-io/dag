@@ -118,6 +118,45 @@ describe('ChartService', () => {
         assert.ok(!fs.existsSync('/tmp/malicious.txt'));
     });
 
+    it('should create tgz from a directory', async () => {
+        const srcDir = path.join(tempDir, 'chart-dir');
+        fs.mkdirSync(path.join(srcDir, 'templates'), { recursive: true });
+        fs.writeFileSync(path.join(srcDir, 'Chart.yaml'), 'apiVersion: v2\nname: test-chart');
+        fs.writeFileSync(path.join(srcDir, 'values.yaml'), 'replicaCount: 3');
+        fs.writeFileSync(path.join(srcDir, 'templates', 'deployment.yaml'), 'kind: Deployment');
+
+        const buffer = await service.createTgz(srcDir);
+
+        // Verify it's a valid gzip (magic bytes 0x1f 0x8b)
+        assert.equal(buffer[0], 0x1f);
+        assert.equal(buffer[1], 0x8b);
+
+        // Extract and verify contents round-trip
+        const extractDir = path.join(tempDir, 'extracted');
+        fs.mkdirSync(extractDir, { recursive: true });
+        const { Readable } = await import('node:stream');
+        const { pipeline } = await import('node:stream/promises');
+        await pipeline(Readable.from(buffer), tar.extract({ cwd: extractDir }));
+
+        assert.equal(fs.readFileSync(path.join(extractDir, 'Chart.yaml'), 'utf-8'), 'apiVersion: v2\nname: test-chart');
+        assert.equal(fs.readFileSync(path.join(extractDir, 'values.yaml'), 'utf-8'), 'replicaCount: 3');
+        assert.equal(fs.readFileSync(path.join(extractDir, 'templates', 'deployment.yaml'), 'utf-8'), 'kind: Deployment');
+    });
+
+    it('should round-trip createTgz and extractTgz', async () => {
+        const srcDir = path.join(tempDir, 'original');
+        fs.mkdirSync(srcDir, { recursive: true });
+        fs.writeFileSync(path.join(srcDir, 'Chart.yaml'), 'apiVersion: v2');
+        fs.writeFileSync(path.join(srcDir, 'values.yaml'), 'key: value');
+
+        const buffer = await service.createTgz(srcDir);
+        const destDir = path.join(tempDir, 'restored');
+        await service.extractTgz(buffer, destDir);
+
+        assert.equal(fs.readFileSync(path.join(destDir, 'Chart.yaml'), 'utf-8'), 'apiVersion: v2');
+        assert.equal(fs.readFileSync(path.join(destDir, 'values.yaml'), 'utf-8'), 'key: value');
+    });
+
     it('should overwrite existing contents', async () => {
         const destPath = path.join(tempDir, 'output');
         fs.mkdirSync(destPath, { recursive: true });

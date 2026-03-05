@@ -55,6 +55,15 @@ export class ChartService {
         }
     }
 
+    async createTgz(dirPath: string): Promise<Buffer> {
+        const chunks: Buffer[] = [];
+        const stream = tar.create({ gzip: true, cwd: dirPath }, await fs.readdir(dirPath));
+        for await (const chunk of stream) {
+            chunks.push(Buffer.from(chunk as Uint8Array));
+        }
+        return Buffer.concat(chunks);
+    }
+
     async updateChartVersion(chartDir: string, version: string): Promise<void> {
         const chartYamlPath = path.join(chartDir, 'Chart.yaml');
         try {

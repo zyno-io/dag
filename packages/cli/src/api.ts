@@ -1,6 +1,49 @@
 import type { DeployResponse, DeploymentStatusEvent } from '@zyno-io/dag-shared';
 import { EventSource } from 'eventsource';
 
+export interface AppInfoOptions {
+    serverUrl: string;
+    repoUrl: string;
+    jobId: string;
+    jobToken: string;
+}
+
+export async function getChart(options: AppInfoOptions): Promise<Buffer> {
+    const { serverUrl, repoUrl, jobId, jobToken } = options;
+    const url = `${serverUrl.replace(/\/+$/, '')}/api/get/chart`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repoUrl, jobId, jobToken })
+    });
+
+    if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Get chart request failed (${response.status}): ${body}`);
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+}
+
+export async function getValues(options: AppInfoOptions): Promise<Record<string, unknown>> {
+    const { serverUrl, repoUrl, jobId, jobToken } = options;
+    const url = `${serverUrl.replace(/\/+$/, '')}/api/get/values`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repoUrl, jobId, jobToken })
+    });
+
+    if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Get values request failed (${response.status}): ${body}`);
+    }
+
+    return (await response.json()) as Record<string, unknown>;
+}
+
 export interface DeployOptions {
     serverUrl: string;
     repoUrl: string;
@@ -50,10 +93,13 @@ export function streamDeploymentEvents(
         // Add a 30s grace period beyond the requested timeout so the server's
         // own timeout (which carries a detailed error message) has time to arrive
         // before we fall back to a generic client-side timeout.
-        const timer = setTimeout(() => {
-            es.close();
-            reject(new Error(`Deployment timed out after ${timeout}s`));
-        }, (timeout + 30) * 1000);
+        const timer = setTimeout(
+            () => {
+                es.close();
+                reject(new Error(`Deployment timed out after ${timeout}s`));
+            },
+            (timeout + 30) * 1000
+        );
 
         // Liveness detection: if no event arrives within 30s (2x the 15s heartbeat),
         // treat the connection as dead

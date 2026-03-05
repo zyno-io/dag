@@ -24,6 +24,7 @@
         "@kubernetes/client-node": "^1.4.0",
         "@zyno-io/dag-shared": "workspace:*",
         "@zyno-io/dk-server-foundation": "^26.302.1040",
+        "js-yaml": "^4.1.1",
         "simple-git": "^3.32.3",
         "tar": "^7.5.9"
     },

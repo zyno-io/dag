@@ -1,5 +1,5 @@
 import { ScopedLogger } from '@deepkit/logger';
-import type { DeploymentStatus, DeploymentStatusEvent } from '@zyno-io/dag-shared';
+import type { DeploymentStatus, DeploymentStatusEvent, GitProvider } from '@zyno-io/dag-shared';
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 
@@ -11,6 +11,12 @@ import { IacEntity } from '../entities/iac.entity';
 import { ChartService } from './chart.service';
 import { IacRepoService } from './iac-repo.service';
 import { K8sMonitorService } from './k8s-monitor.service';
+
+export function buildJobUrl(provider: GitProvider, repoUrl: string, jobId: string): string {
+    const base = repoUrl.replace(/\.git\/?$/i, '').replace(/\/+$/, '');
+    if (provider === 'gitlab') return `${base}/-/jobs/${jobId}`;
+    return `${base}/actions/runs/${jobId}`;
+}
 
 export function buildCommitUrl(repoUrl: string, sha: string): string | undefined {
     const base = repoUrl.replace(/\.git\/?$/i, '').replace(/\/+$/, '');
@@ -50,7 +56,7 @@ export class DeploymentService {
         private logger: ScopedLogger
     ) {}
 
-    async processDeployment(deploymentId: string, chartBuffer: Buffer): Promise<void> {
+    async processDeployment(deploymentId: string, chartBuffer: Buffer, ciCommitSha: string): Promise<void> {
         const deployment = await DeploymentEntity.query().filterField('id', deploymentId).findOne();
         let commitUrl: string | undefined;
 
@@ -73,7 +79,7 @@ export class DeploymentService {
                 return this.iacRepoService.commitAndPush(
                     localPath,
                     iac,
-                    `[${app.repoUrl.split('/').pop()}] deploy ${deployment.version}\n\nRepo: ${app.repoUrl}\nTarget: ${appEnvironment.iacPath}\nJob: ${deployment.ciJobId}`,
+                    `[${app.repoUrl.split('/').pop()}] deploy ${deployment.version}\n\nRepo: ${app.repoUrl}\nBranch: ${appEnvironment.branch}\nCommit: ${ciCommitSha}\nJob: ${buildJobUrl(app.gitProvider, app.repoUrl, deployment.ciJobId)}\nIaC Target: ${appEnvironment.iacPath}`,
                     appEnvironment.iacBranch
                 );
             });

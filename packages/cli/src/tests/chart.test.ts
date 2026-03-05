@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as tar from 'tar';
 
 import { packageChart } from '../chart.js';
 
@@ -52,4 +53,57 @@ describe('packageChart', () => {
         const buffer = await packageChart(tgzPath);
         assert.deepEqual(buffer, fakeContent);
     });
+
+    it('should exclude extraneous files by default', async () => {
+        const chartDir = path.join(tempDir, 'my-chart');
+        fs.mkdirSync(chartDir, { recursive: true });
+        fs.writeFileSync(path.join(chartDir, 'Chart.yaml'), 'apiVersion: v2\nname: my-chart');
+        fs.writeFileSync(path.join(chartDir, 'values.yaml'), 'replicaCount: 1');
+        fs.writeFileSync(path.join(chartDir, 'README.md'), '# My Chart');
+        fs.writeFileSync(path.join(chartDir, 'LICENSE'), 'MIT');
+        fs.mkdirSync(path.join(chartDir, 'templates'), { recursive: true });
+        fs.writeFileSync(path.join(chartDir, 'templates', 'deployment.yaml'), 'kind: Deployment');
+
+        const buffer = await packageChart(chartDir);
+        const entries = await listTarEntries(buffer);
+
+        assert.ok(entries.includes('my-chart/Chart.yaml'));
+        assert.ok(entries.includes('my-chart/values.yaml'));
+        assert.ok(entries.includes('my-chart/templates/deployment.yaml'));
+        assert.ok(!entries.includes('my-chart/README.md'), 'README.md should be excluded');
+        assert.ok(!entries.includes('my-chart/LICENSE'), 'LICENSE should be excluded');
+    });
+
+    it('should include all files when includeAllFiles is true', async () => {
+        const chartDir = path.join(tempDir, 'my-chart');
+        fs.mkdirSync(chartDir, { recursive: true });
+        fs.writeFileSync(path.join(chartDir, 'Chart.yaml'), 'apiVersion: v2\nname: my-chart');
+        fs.writeFileSync(path.join(chartDir, 'values.yaml'), 'replicaCount: 1');
+        fs.writeFileSync(path.join(chartDir, 'README.md'), '# My Chart');
+
+        const buffer = await packageChart(chartDir, { includeAllFiles: true });
+        const entries = await listTarEntries(buffer);
+
+        assert.ok(entries.includes('my-chart/Chart.yaml'));
+        assert.ok(entries.includes('my-chart/values.yaml'));
+        assert.ok(entries.includes('my-chart/README.md'), 'README.md should be included');
+    });
 });
+
+async function listTarEntries(buffer: Buffer): Promise<string[]> {
+    const { Readable } = await import('node:stream');
+    const entries: string[] = [];
+    const parser = new tar.Parser({
+        onReadEntry: entry => {
+            entries.push(entry.path);
+            entry.resume();
+        }
+    });
+    const stream = Readable.from(buffer);
+    await new Promise<void>((resolve, reject) => {
+        stream.pipe(parser);
+        parser.on('end', resolve);
+        parser.on('error', reject);
+    });
+    return entries;
+}
