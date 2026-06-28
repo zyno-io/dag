@@ -9,3 +9,4 @@ dist/
 *.tgz
 .env.local
 .env.*.local
+openapi.yaml

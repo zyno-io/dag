@@ -2,8 +2,9 @@
 
 import { Command } from 'commander';
 import * as fs from 'node:fs';
-import { detectCIEnvironment } from './detect.js';
+
 import { getChart } from './api.js';
+import { detectCIEnvironment } from './detect.js';
 
 const program = new Command();
 
@@ -15,6 +16,7 @@ program
     .option('--repo <url>', 'Override auto-detected repo URL (env: DAG_REPO_URL)')
     .option('--job-id <id>', 'Override auto-detected job ID (env: DAG_JOB_ID)')
     .option('--job-token <token>', 'Override auto-detected job token (env: DAG_JOB_TOKEN)')
+    .option('--environment <name>', 'Target DAG environment name (env: DAG_ENVIRONMENT)')
     .action(async (outputPath: string, options: Record<string, unknown>) => {
         try {
             const serverUrl = (options.server as string | undefined) || process.env.DAG_SERVER_URL;
@@ -32,8 +34,9 @@ program
                 jobId = jobId || detected.jobId;
                 jobToken = jobToken || detected.jobToken;
             }
+            const environment = (options.environment as string | undefined) || process.env.DAG_ENVIRONMENT;
 
-            const buffer = await getChart({ serverUrl, repoUrl, jobId, jobToken });
+            const buffer = await getChart({ serverUrl, repoUrl, jobId, jobToken, environment });
             fs.writeFileSync(outputPath, buffer);
             console.log(`Chart written to ${outputPath}`);
         } catch (err: unknown) {

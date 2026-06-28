@@ -1,5 +1,5 @@
-import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it, mock } from 'node:test';
 
 import { submitDeploy, getChart, getValues } from '../api.js';
 
@@ -21,12 +21,17 @@ describe('API client', () => {
                     repoUrl: 'https://gitlab.example.com/org/app',
                     jobId: '12345',
                     jobToken: 'test-token',
+                    environment: 'production',
                     version: '1.0.0',
                     chartBuffer: Buffer.from('fake-chart-data'),
                     timeout: 300
                 });
 
                 assert.equal(deploymentId, 'test-uuid-123');
+
+                const fetchCall = (globalThis.fetch as any).mock.calls[0];
+                const body = fetchCall.arguments[1].body as FormData;
+                assert.equal(body.get('environment'), 'production');
             } finally {
                 globalThis.fetch = originalFetch;
             }
@@ -78,7 +83,8 @@ describe('API client', () => {
                     serverUrl: 'http://localhost:3000',
                     repoUrl: 'https://gitlab.example.com/org/app',
                     jobId: '12345',
-                    jobToken: 'test-token'
+                    jobToken: 'test-token',
+                    environment: 'production'
                 });
 
                 assert.ok(Buffer.isBuffer(result));
@@ -94,6 +100,7 @@ describe('API client', () => {
                 assert.equal(body.repoUrl, 'https://gitlab.example.com/org/app');
                 assert.equal(body.jobId, '12345');
                 assert.equal(body.jobToken, 'test-token');
+                assert.equal(body.environment, 'production');
             } finally {
                 globalThis.fetch = originalFetch;
             }
@@ -167,7 +174,8 @@ describe('API client', () => {
                     serverUrl: 'http://localhost:3000',
                     repoUrl: 'https://gitlab.example.com/org/app',
                     jobId: '12345',
-                    jobToken: 'test-token'
+                    jobToken: 'test-token',
+                    environment: 'production'
                 });
 
                 assert.deepEqual(result, valuesData);
@@ -178,6 +186,8 @@ describe('API client', () => {
 
                 // Verify Content-Type header
                 assert.equal(fetchCall.arguments[1].headers['Content-Type'], 'application/json');
+                const body = JSON.parse(fetchCall.arguments[1].body);
+                assert.equal(body.environment, 'production');
             } finally {
                 globalThis.fetch = originalFetch;
             }

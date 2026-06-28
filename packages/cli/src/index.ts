@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import * as yaml from 'js-yaml';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as yaml from 'js-yaml';
-import { detectCIEnvironment } from './detect.js';
-import { packageChart } from './chart.js';
+
 import { submitDeploy, streamDeploymentEvents } from './api.js';
+import { packageChart } from './chart.js';
+import { detectCIEnvironment } from './detect.js';
 import { DeploymentDisplay } from './display.js';
 import { deepMerge, setNestedValue } from './yaml-utils.js';
 
@@ -25,6 +26,7 @@ program
     .option('--repo <url>', 'Override auto-detected repo URL (env: DAG_REPO_URL)')
     .option('--job-id <id>', 'Override auto-detected job ID (env: DAG_JOB_ID)')
     .option('--job-token <token>', 'Override auto-detected job token (env: DAG_JOB_TOKEN)')
+    .option('--environment <name>', 'Target DAG environment name (env: DAG_ENVIRONMENT)')
     .option('--deploy-version <version>', 'Deployment version (env: DAG_DEPLOY_VERSION)')
     .option('--timeout <seconds>', 'Deployment timeout in seconds (env: DAG_TIMEOUT)', '300')
     .option('--values-file <path>', 'YAML file to merge into the chart values.yaml')
@@ -59,6 +61,7 @@ program
                 jobId = jobId || detected.jobId;
                 jobToken = jobToken || detected.jobToken;
             }
+            const environment = (options.environment as string | undefined) || process.env.DAG_ENVIRONMENT;
 
             const timeout = parseInt((options.timeout as string | undefined) || process.env.DAG_TIMEOUT || '300', 10);
             if (!Number.isFinite(timeout) || timeout <= 0) {
@@ -158,6 +161,7 @@ program
                 repoUrl,
                 jobId,
                 jobToken,
+                environment,
                 version,
                 chartBuffer,
                 timeout

@@ -1,7 +1,7 @@
 import { TestingHelpers } from '@zyno-io/dk-server-foundation';
 
-import { AppEntity } from '../../entities/app.entity';
 import { AppEnvironmentEntity } from '../../entities/app-environment.entity';
+import { AppEntity } from '../../entities/app.entity';
 import { ClusterEntity } from '../../entities/cluster.entity';
 import { IacEntity } from '../../entities/iac.entity';
 
@@ -33,6 +33,7 @@ export const appEnvironmentFixtures = TestingHelpers.defineEntityFixtures(AppEnv
     mainBranch: {
         appId: 0, // Set during test setup
         branch: 'main',
+        name: 'main',
         iacId: 0, // Set during test setup
         iacPath: 'charts/my-app',
         clusterId: 0, // Set during test setup

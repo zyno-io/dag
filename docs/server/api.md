@@ -8,13 +8,14 @@ Submit a new deployment.
 
 `Content-Type: multipart/form-data`
 
-| Field      | Type     | Required | Description                                      |
-| ---------- | -------- | -------- | ------------------------------------------------ |
-| `repoUrl`  | `string` | Yes      | Git repository URL                               |
-| `jobId`    | `string` | Yes      | CI job ID                                        |
-| `jobToken` | `string` | Yes      | CI job authentication token                      |
-| `version`  | `string` | Yes      | Deployment version (e.g. commit SHA, semver tag) |
-| `chart`    | `file`   | Yes      | Helm chart tarball (`.tgz`)                      |
+| Field         | Type     | Required | Description                                                     |
+| ------------- | -------- | -------- | --------------------------------------------------------------- |
+| `repoUrl`     | `string` | Yes      | Git repository URL                                              |
+| `jobId`       | `string` | Yes      | CI job ID                                                       |
+| `jobToken`    | `string` | Yes      | CI job authentication token                                     |
+| `environment` | `string` | No       | Target environment name when a branch has multiple environments |
+| `version`     | `string` | Yes      | Deployment version (e.g. commit SHA, semver tag)                |
+| `chart`       | `file`   | Yes      | Helm chart tarball (`.tgz`)                                     |
 
 ### Response
 
@@ -26,11 +27,11 @@ Submit a new deployment.
 
 ### Errors
 
-| Status | Condition                                                                             |
-| ------ | ------------------------------------------------------------------------------------- |
-| `400`  | Missing required fields                                                               |
-| `401`  | Job token verification failed                                                         |
-| `404`  | No app configured for the given repo URL, or no environment configured for the branch |
+| Status | Condition                                                                                |
+| ------ | ---------------------------------------------------------------------------------------- |
+| `400`  | Missing required fields, or multiple environments match the branch without `environment` |
+| `401`  | Job token verification failed                                                            |
+| `404`  | No app configured for the given repo URL, or no matching environment configured          |
 
 ## POST /api/get/chart
 
@@ -40,11 +41,12 @@ Download the currently deployed chart from the IaC repository as a gzipped tarba
 
 `Content-Type: application/json`
 
-| Field      | Type     | Required | Description                 |
-| ---------- | -------- | -------- | --------------------------- |
-| `repoUrl`  | `string` | Yes      | Git repository URL          |
-| `jobId`    | `string` | Yes      | CI job ID                   |
-| `jobToken` | `string` | Yes      | CI job authentication token |
+| Field         | Type     | Required | Description                                                     |
+| ------------- | -------- | -------- | --------------------------------------------------------------- |
+| `repoUrl`     | `string` | Yes      | Git repository URL                                              |
+| `jobId`       | `string` | Yes      | CI job ID                                                       |
+| `jobToken`    | `string` | Yes      | CI job authentication token                                     |
+| `environment` | `string` | No       | Target environment name when a branch has multiple environments |
 
 ### Response
 
@@ -54,11 +56,11 @@ The response body is a `.tgz` archive of the chart directory.
 
 ### Errors
 
-| Status | Condition                                                                             |
-| ------ | ------------------------------------------------------------------------------------- |
-| `400`  | Missing required fields, or IaC path resolves outside the repository                  |
-| `401`  | Job token verification failed                                                         |
-| `404`  | No app configured for the given repo URL, no environment for the branch, or chart directory not found |
+| Status | Condition                                                                                                                          |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | Missing required fields, multiple environments match the branch without `environment`, or IaC path resolves outside the repository |
+| `401`  | Job token verification failed                                                                                                      |
+| `404`  | No app configured for the given repo URL, no matching environment, or chart directory not found                                    |
 
 ## POST /api/get/values
 
@@ -68,11 +70,12 @@ Fetch the currently deployed `values.yaml` from the IaC repository, returned as 
 
 `Content-Type: application/json`
 
-| Field      | Type     | Required | Description                 |
-| ---------- | -------- | -------- | --------------------------- |
-| `repoUrl`  | `string` | Yes      | Git repository URL          |
-| `jobId`    | `string` | Yes      | CI job ID                   |
-| `jobToken` | `string` | Yes      | CI job authentication token |
+| Field         | Type     | Required | Description                                                     |
+| ------------- | -------- | -------- | --------------------------------------------------------------- |
+| `repoUrl`     | `string` | Yes      | Git repository URL                                              |
+| `jobId`       | `string` | Yes      | CI job ID                                                       |
+| `jobToken`    | `string` | Yes      | CI job authentication token                                     |
+| `environment` | `string` | No       | Target environment name when a branch has multiple environments |
 
 ### Response
 
@@ -88,11 +91,11 @@ Fetch the currently deployed `values.yaml` from the IaC repository, returned as 
 
 ### Errors
 
-| Status | Condition                                                                             |
-| ------ | ------------------------------------------------------------------------------------- |
-| `400`  | Missing required fields, IaC path resolves outside the repository, or malformed YAML  |
-| `401`  | Job token verification failed                                                         |
-| `404`  | No app configured for the given repo URL, no environment for the branch, or `values.yaml` not found |
+| Status | Condition                                                                                                                                          |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | Missing required fields, multiple environments match the branch without `environment`, IaC path resolves outside the repository, or malformed YAML |
+| `401`  | Job token verification failed                                                                                                                      |
+| `404`  | No app configured for the given repo URL, no matching environment, or `values.yaml` not found                                                      |
 
 ## GET /api/deployments/:id/events
 

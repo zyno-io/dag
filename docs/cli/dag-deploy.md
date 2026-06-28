@@ -18,18 +18,19 @@ If a directory is provided, it will be packaged into a `.tgz` tarball automatica
 
 ### Options
 
-| Option                       | Env Variable         | Default       | Description                                                    |
-| ---------------------------- | -------------------- | ------------- | -------------------------------------------------------------- |
-| `--server <url>`             | `DAG_SERVER_URL`     | —             | DAG server URL **(required)**                                  |
-| `--repo <url>`               | `DAG_REPO_URL`       | auto-detected | Override the repository URL                                    |
-| `--job-id <id>`              | `DAG_JOB_ID`         | auto-detected | Override the CI job ID                                         |
-| `--job-token <token>`        | `DAG_JOB_TOKEN`      | auto-detected | Override the CI job token                                      |
-| `--deploy-version <version>` | `DAG_DEPLOY_VERSION` | —             | Deployment version **(required)**                              |
-| `--timeout <seconds>`        | `DAG_TIMEOUT`        | `300`         | Client-side timeout for waiting on deployment status (seconds) |
-| `--values-file <path>`       | —                    | —             | YAML file to deep-merge into the chart's base `values.yaml`   |
-| `--set <key=value>`          | —                    | —             | Set a dotted path to a literal string value (repeatable)       |
-| `--set-json <key=json>`      | —                    | —             | Set a dotted path to a JSON-parsed value (repeatable)          |
-| `--set-file <key=filepath>`  | —                    | —             | Set a dotted path to the contents of a file (repeatable)       |
+| Option                       | Env Variable         | Default       | Description                                                     |
+| ---------------------------- | -------------------- | ------------- | --------------------------------------------------------------- |
+| `--server <url>`             | `DAG_SERVER_URL`     | —             | DAG server URL **(required)**                                   |
+| `--repo <url>`               | `DAG_REPO_URL`       | auto-detected | Override the repository URL                                     |
+| `--job-id <id>`              | `DAG_JOB_ID`         | auto-detected | Override the CI job ID                                          |
+| `--job-token <token>`        | `DAG_JOB_TOKEN`      | auto-detected | Override the CI job token                                       |
+| `--environment <name>`       | `DAG_ENVIRONMENT`    | —             | Target environment name when a branch has multiple environments |
+| `--deploy-version <version>` | `DAG_DEPLOY_VERSION` | —             | Deployment version **(required)**                               |
+| `--timeout <seconds>`        | `DAG_TIMEOUT`        | `300`         | Client-side timeout for waiting on deployment status (seconds)  |
+| `--values-file <path>`       | —                    | —             | YAML file to deep-merge into the chart's base `values.yaml`     |
+| `--set <key=value>`          | —                    | —             | Set a dotted path to a literal string value (repeatable)        |
+| `--set-json <key=json>`      | —                    | —             | Set a dotted path to a JSON-parsed value (repeatable)           |
+| `--set-file <key=filepath>`  | —                    | —             | Set a dotted path to the contents of a file (repeatable)        |
 
 ### CI Auto-Detection
 
@@ -82,6 +83,7 @@ Values set via `--set` are always strings. Use `--set-json` for typed values (nu
 --set-json 'resources={"limits":{"cpu":"500m","memory":"256Mi"}}'
 --set-json 'replicas=3'
 ```
+
 :::
 
 ## Examples
@@ -104,6 +106,15 @@ dag-deploy ./charts/my-app \
     --set image.tag=$CI_COMMIT_SHA \
     --set-json 'replicas=3' \
     --set-file config.data=./config.json
+```
+
+Deploy to a selected environment when multiple DAG environments use the same branch:
+
+```sh
+dag-deploy ./charts/my-app \
+    --server https://dag.example.com \
+    --environment production \
+    --deploy-version v1.2.3
 ```
 
 Deploy a pre-packaged tarball:

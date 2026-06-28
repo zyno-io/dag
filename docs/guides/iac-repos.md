@@ -45,13 +45,15 @@ By default, DAG pushes to the IAC repo's default branch. You can configure a dif
 - **Staging environments**: Push to a `staging` branch that a separate process promotes to `main`
 - **Review environments**: Push to per-branch IAC branches
 
+Source branches and IAC branches are independent. Multiple DAG environments can use the same source branch, such as `main`, and target different IAC paths or IAC branches by selecting the environment with `--environment`.
+
 ## Concurrency
 
 DAG uses mutex locks when pushing to IAC repositories. If multiple deployments target the same IAC repo simultaneously, they're serialized to prevent merge conflicts. The mutex key includes the IAC repo ID, so deployments to different IAC repos proceed in parallel.
 
 ## Commit Messages
 
-DAG commits with a message that includes the source repo URL, IAC path, and CI job ID, making it easy to trace deployments in the IAC repo's Git history. For example:
+DAG commits with a message that includes the source repo URL, environment, IAC path, and CI job ID, making it easy to trace deployments in the IAC repo's Git history. For example:
 
 ```
 deploy: https://gitlab.com/org/my-app → clusters/production/my-app (job 12345)

@@ -1,7 +1,7 @@
 import { http, HttpBody, HttpBadRequestError, HttpNotFoundError, HttpResponse } from '@deepkit/http';
+import * as yaml from 'js-yaml';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as yaml from 'js-yaml';
 
 import { IacEntity } from '../entities/iac.entity';
 import { AppAuthService } from '../services/app-auth.service';
@@ -12,6 +12,7 @@ interface GetBody {
     repoUrl: string;
     jobId: string;
     jobToken: string;
+    environment?: string;
 }
 
 function resolveIacPath(localPath: string, iacPath: string): string {
@@ -33,13 +34,13 @@ export class GetController {
 
     @http.POST('chart')
     async getChart(body: HttpBody<GetBody>, response: HttpResponse): Promise<void> {
-        const { repoUrl, jobId, jobToken } = body;
+        const { repoUrl, jobId, jobToken, environment } = body;
 
         if (!repoUrl || !jobId || !jobToken) {
             throw new HttpBadRequestError('Missing required fields: repoUrl, jobId, jobToken');
         }
 
-        const { appEnvironment } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken);
+        const { appEnvironment } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken, environment);
         const iac = await IacEntity.query().filterField('id', appEnvironment.iacId).findOne();
 
         const buffer = await this.iacRepoService.withRepoLock(iac, appEnvironment.iacBranch, async localPath => {
@@ -61,13 +62,13 @@ export class GetController {
 
     @http.POST('values')
     async getValues(body: HttpBody<GetBody>, response: HttpResponse): Promise<void> {
-        const { repoUrl, jobId, jobToken } = body;
+        const { repoUrl, jobId, jobToken, environment } = body;
 
         if (!repoUrl || !jobId || !jobToken) {
             throw new HttpBadRequestError('Missing required fields: repoUrl, jobId, jobToken');
         }
 
-        const { appEnvironment } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken);
+        const { appEnvironment } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken, environment);
         const iac = await IacEntity.query().filterField('id', appEnvironment.iacId).findOne();
 
         const values = await this.iacRepoService.withRepoLock(iac, appEnvironment.iacBranch, async localPath => {

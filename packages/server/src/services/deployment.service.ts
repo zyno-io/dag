@@ -1,10 +1,11 @@
-import { ScopedLogger } from '@deepkit/logger';
 import type { DeploymentStatus, DeploymentStatusEvent, GitProvider } from '@zyno-io/dag-shared';
+
+import { ScopedLogger } from '@deepkit/logger';
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 
-import { AppEntity } from '../entities/app.entity';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
+import { AppEntity } from '../entities/app.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
 import { DeploymentEntity } from '../entities/deployment.entity';
 import { IacEntity } from '../entities/iac.entity';
@@ -79,7 +80,7 @@ export class DeploymentService {
                 return this.iacRepoService.commitAndPush(
                     localPath,
                     iac,
-                    `[${app.repoUrl.split('/').pop()}] deploy ${deployment.version}\n\nRepo: ${app.repoUrl}\nBranch: ${appEnvironment.branch}\nCommit: ${ciCommitSha}\nJob: ${buildJobUrl(app.gitProvider, app.repoUrl, deployment.ciJobId)}\nIaC Target: ${appEnvironment.iacPath}`,
+                    `[${app.repoUrl.split('/').pop()}] deploy ${deployment.version}\n\nRepo: ${app.repoUrl}\nBranch: ${appEnvironment.branch}\nEnvironment: ${appEnvironment.name}\nCommit: ${ciCommitSha}\nJob: ${buildJobUrl(app.gitProvider, app.repoUrl, deployment.ciJobId)}\nIaC Target: ${appEnvironment.iacPath}`,
                     appEnvironment.iacBranch
                 );
             });

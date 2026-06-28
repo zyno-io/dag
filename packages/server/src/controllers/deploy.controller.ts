@@ -14,6 +14,7 @@ interface DeployBody {
     repoUrl: string;
     jobId: string;
     jobToken: string;
+    environment?: string;
     version: string;
     chart: UploadedFile;
 }
@@ -29,13 +30,13 @@ export class DeployController {
 
     @http.POST('deploy')
     async deploy(body: HttpBody<DeployBody>): Promise<{ deploymentId: string }> {
-        const { repoUrl, jobId, jobToken, version, chart } = body;
+        const { repoUrl, jobId, jobToken, environment, version, chart } = body;
 
         if (!repoUrl || !jobId || !jobToken || !version || !chart) {
             throw new HttpBadRequestError('Missing required fields: repoUrl, jobId, jobToken, version, chart');
         }
 
-        const { appEnvironment, commitSha: ciCommitSha } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken);
+        const { appEnvironment, commitSha: ciCommitSha } = await this.appAuthService.authenticateAndResolve(repoUrl, jobId, jobToken, environment);
 
         // Read chart file
         const chartBuffer = await fs.readFile(chart.path);

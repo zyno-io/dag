@@ -1,4 +1,5 @@
 import type { DeployResponse, DeploymentStatusEvent } from '@zyno-io/dag-shared';
+
 import { EventSource } from 'eventsource';
 
 export interface AppInfoOptions {
@@ -6,16 +7,19 @@ export interface AppInfoOptions {
     repoUrl: string;
     jobId: string;
     jobToken: string;
+    environment?: string;
 }
 
 export async function getChart(options: AppInfoOptions): Promise<Buffer> {
-    const { serverUrl, repoUrl, jobId, jobToken } = options;
+    const { serverUrl, repoUrl, jobId, jobToken, environment } = options;
     const url = `${serverUrl.replace(/\/+$/, '')}/api/get/chart`;
+    const body: Record<string, string> = { repoUrl, jobId, jobToken };
+    if (environment) body.environment = environment;
 
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoUrl, jobId, jobToken })
+        body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -27,13 +31,15 @@ export async function getChart(options: AppInfoOptions): Promise<Buffer> {
 }
 
 export async function getValues(options: AppInfoOptions): Promise<Record<string, unknown>> {
-    const { serverUrl, repoUrl, jobId, jobToken } = options;
+    const { serverUrl, repoUrl, jobId, jobToken, environment } = options;
     const url = `${serverUrl.replace(/\/+$/, '')}/api/get/values`;
+    const body: Record<string, string> = { repoUrl, jobId, jobToken };
+    if (environment) body.environment = environment;
 
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoUrl, jobId, jobToken })
+        body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -49,18 +55,20 @@ export interface DeployOptions {
     repoUrl: string;
     jobId: string;
     jobToken: string;
+    environment?: string;
     version: string;
     chartBuffer: Buffer;
     timeout: number;
 }
 
 export async function submitDeploy(options: DeployOptions): Promise<string> {
-    const { serverUrl, repoUrl, jobId, jobToken, version, chartBuffer } = options;
+    const { serverUrl, repoUrl, jobId, jobToken, environment, version, chartBuffer } = options;
 
     const formData = new FormData();
     formData.append('repoUrl', repoUrl);
     formData.append('jobId', jobId);
     formData.append('jobToken', jobToken);
+    if (environment) formData.append('environment', environment);
     formData.append('version', version);
     formData.append('chart', new Blob([new Uint8Array(chartBuffer)]), 'chart.tgz');
 

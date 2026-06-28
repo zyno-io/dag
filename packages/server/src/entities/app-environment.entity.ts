@@ -1,11 +1,12 @@
 import { AutoIncrement, entity, PrimaryKey } from '@deepkit/type';
 import { BaseEntity, HasDefault } from '@zyno-io/dk-server-foundation';
 @entity.name('apps_environments')
-@entity.index(['appId', 'branch'], { unique: true })
+@entity.index(['appId', 'branch', 'name'], { unique: true })
 export class AppEnvironmentEntity extends BaseEntity {
     id!: number & AutoIncrement & PrimaryKey;
     appId!: number;
     branch!: string;
+    name!: string;
     iacId!: number;
     iacPath!: string;
     clusterId!: number;

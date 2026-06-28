@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { detectCIEnvironment } from './detect.js';
+
 import { getValues } from './api.js';
+import { detectCIEnvironment } from './detect.js';
 
 const program = new Command();
 
@@ -13,6 +14,7 @@ program
     .option('--repo <url>', 'Override auto-detected repo URL (env: DAG_REPO_URL)')
     .option('--job-id <id>', 'Override auto-detected job ID (env: DAG_JOB_ID)')
     .option('--job-token <token>', 'Override auto-detected job token (env: DAG_JOB_TOKEN)')
+    .option('--environment <name>', 'Target DAG environment name (env: DAG_ENVIRONMENT)')
     .action(async (options: Record<string, unknown>) => {
         try {
             const serverUrl = (options.server as string | undefined) || process.env.DAG_SERVER_URL;
@@ -30,8 +32,9 @@ program
                 jobId = jobId || detected.jobId;
                 jobToken = jobToken || detected.jobToken;
             }
+            const environment = (options.environment as string | undefined) || process.env.DAG_ENVIRONMENT;
 
-            const values = await getValues({ serverUrl, repoUrl, jobId, jobToken });
+            const values = await getValues({ serverUrl, repoUrl, jobId, jobToken, environment });
             console.log(JSON.stringify(values, null, 2));
         } catch (err: unknown) {
             console.error(err instanceof Error ? err.message : String(err));

@@ -3,11 +3,11 @@ import { createMigration } from '@zyno-io/dk-server-foundation';
 export default createMigration(async db => {
     // Table: apps
     await db.rawExecute(`
-        DO \$\$ BEGIN
+        DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'apps_gitProvider') THEN
             CREATE TYPE "apps_gitProvider" AS ENUM ('gitlab', 'github');
         END IF;
-        END \$\$
+        END $$
     `);
     await db.rawExecute(`CREATE CAST (text AS "apps_gitProvider") WITH INOUT AS IMPLICIT`);
     await db.rawExecute(`
@@ -24,11 +24,11 @@ export default createMigration(async db => {
 
     // Table: apps_environments
     await db.rawExecute(`
-        DO \$\$ BEGIN
+        DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'apps_environments_helmType') THEN
             CREATE TYPE "apps_environments_helmType" AS ENUM ('flux', 'plain');
         END IF;
-        END \$\$
+        END $$
     `);
     await db.rawExecute(`CREATE CAST (text AS "apps_environments_helmType") WITH INOUT AS IMPLICIT`);
     await db.rawExecute(`
@@ -36,6 +36,7 @@ export default createMigration(async db => {
             "id" SERIAL,
             "appId" DOUBLE PRECISION NOT NULL,
             "branch" VARCHAR(255) NOT NULL,
+            "name" VARCHAR(255) NOT NULL,
             "iacId" DOUBLE PRECISION NOT NULL,
             "iacPath" VARCHAR(255) NOT NULL,
             "clusterId" DOUBLE PRECISION NOT NULL,
@@ -48,7 +49,7 @@ export default createMigration(async db => {
             PRIMARY KEY ("id")
         )
     `);
-    await db.rawExecute(`CREATE UNIQUE INDEX "idx_apps_environments_appId_branch" ON "apps_environments" ("appId", "branch")`);
+    await db.rawExecute(`CREATE UNIQUE INDEX "idx_apps_environments_appId_branch_name" ON "apps_environments" ("appId", "branch", "name")`);
 
     // Table: clusters
     await db.rawExecute(`
@@ -66,11 +67,11 @@ export default createMigration(async db => {
 
     // Table: apps_deployments
     await db.rawExecute(`
-        DO \$\$ BEGIN
+        DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'apps_deployments_status') THEN
             CREATE TYPE "apps_deployments_status" AS ENUM ('pending', 'validating', 'pushing', 'pushed', 'monitoring', 'deployed', 'failed');
         END IF;
-        END \$\$
+        END $$
     `);
     await db.rawExecute(`CREATE CAST (text AS "apps_deployments_status") WITH INOUT AS IMPLICIT`);
     await db.rawExecute(`

@@ -103,7 +103,7 @@ Register the Kubernetes cluster DAG will monitor for deployment status. This inv
 
 ### 4. Create an App
 
-Register your application and map its branches to IAC paths, clusters, and Helm configurations. See [Creating Apps](./guides/creating-apps.md).
+Register your application and map its branch/environment targets to IAC paths, clusters, and Helm configurations. See [Creating Apps](./guides/creating-apps.md).
 
 ### 5. Deploy from CI
 

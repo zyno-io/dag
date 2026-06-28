@@ -10,12 +10,13 @@ dag-get-values [options]
 
 ### Options
 
-| Option                | Env Variable     | Default       | Description                       |
-| --------------------- | ---------------- | ------------- | --------------------------------- |
-| `--server <url>`      | `DAG_SERVER_URL` | —             | DAG server URL **(required)**     |
-| `--repo <url>`        | `DAG_REPO_URL`   | auto-detected | Override the repository URL       |
-| `--job-id <id>`       | `DAG_JOB_ID`     | auto-detected | Override the CI job ID            |
-| `--job-token <token>` | `DAG_JOB_TOKEN`  | auto-detected | Override the CI job token         |
+| Option                 | Env Variable      | Default       | Description                                                     |
+| ---------------------- | ----------------- | ------------- | --------------------------------------------------------------- |
+| `--server <url>`       | `DAG_SERVER_URL`  | —             | DAG server URL **(required)**                                   |
+| `--repo <url>`         | `DAG_REPO_URL`    | auto-detected | Override the repository URL                                     |
+| `--job-id <id>`        | `DAG_JOB_ID`      | auto-detected | Override the CI job ID                                          |
+| `--job-token <token>`  | `DAG_JOB_TOKEN`   | auto-detected | Override the CI job token                                       |
+| `--environment <name>` | `DAG_ENVIRONMENT` | —             | Target environment name when a branch has multiple environments |
 
 ### CI Auto-Detection
 
@@ -27,27 +28,27 @@ Prints the values as pretty-printed JSON to stdout:
 
 ```json
 {
-  "replicaCount": 3,
-  "image": {
-    "repository": "my-app",
-    "tag": "v1.2.3"
-  }
+    "replicaCount": 3,
+    "image": {
+        "repository": "my-app",
+        "tag": "v1.2.3"
+    }
 }
 ```
 
 ## Exit Codes
 
-| Code | Meaning                 |
-| ---- | ----------------------- |
-| `0`  | Values printed          |
-| `1`  | Error (see stderr)      |
+| Code | Meaning            |
+| ---- | ------------------ |
+| `0`  | Values printed     |
+| `1`  | Error (see stderr) |
 
 ## Examples
 
 Print current values in a CI pipeline:
 
 ```sh
-dag-get-values --server https://dag.example.com
+dag-get-values --server https://dag.example.com --environment production
 ```
 
 Pipe into `jq` to extract a specific value:

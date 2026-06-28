@@ -77,18 +77,19 @@ Submit a Helm chart for deployment.
 dag-deploy <chart-path> [options]
 ```
 
-| Option                   | Env Variable         | Description                                              |
-| ------------------------ | -------------------- | -------------------------------------------------------- |
-| `--server <url>`         | `DAG_SERVER_URL`     | DAG server URL **(required)**                            |
-| `--deploy-version <ver>` | `DAG_DEPLOY_VERSION` | Deployment version **(required)**                        |
-| `--repo <url>`           | `DAG_REPO_URL`       | Override auto-detected repo URL                          |
-| `--job-id <id>`          | `DAG_JOB_ID`         | Override auto-detected job ID                            |
-| `--job-token <token>`    | `DAG_JOB_TOKEN`      | Override auto-detected job token                         |
-| `--timeout <seconds>`    | `DAG_TIMEOUT`        | Client-side timeout (default: `300`)                     |
-| `--values-file <path>`   | —                    | YAML file to deep-merge into the chart's `values.yaml`   |
-| `--set <key=value>`      | —                    | Set a dotted path to a string value (repeatable)         |
-| `--set-json <key=json>`  | —                    | Set a dotted path to a JSON-parsed value (repeatable)    |
-| `--set-file <key=path>`  | —                    | Set a dotted path to a file's contents (repeatable)      |
+| Option                   | Env Variable         | Description                                            |
+| ------------------------ | -------------------- | ------------------------------------------------------ |
+| `--server <url>`         | `DAG_SERVER_URL`     | DAG server URL **(required)**                          |
+| `--deploy-version <ver>` | `DAG_DEPLOY_VERSION` | Deployment version **(required)**                      |
+| `--repo <url>`           | `DAG_REPO_URL`       | Override auto-detected repo URL                        |
+| `--job-id <id>`          | `DAG_JOB_ID`         | Override auto-detected job ID                          |
+| `--job-token <token>`    | `DAG_JOB_TOKEN`      | Override auto-detected job token                       |
+| `--environment <name>`   | `DAG_ENVIRONMENT`    | Target environment name for same-branch environments   |
+| `--timeout <seconds>`    | `DAG_TIMEOUT`        | Client-side timeout (default: `300`)                   |
+| `--values-file <path>`   | —                    | YAML file to deep-merge into the chart's `values.yaml` |
+| `--set <key=value>`      | —                    | Set a dotted path to a string value (repeatable)       |
+| `--set-json <key=json>`  | —                    | Set a dotted path to a JSON-parsed value (repeatable)  |
+| `--set-file <key=path>`  | —                    | Set a dotted path to a file's contents (repeatable)    |
 
 Accepts a chart directory, `.tgz`, or `.tar.gz`. Values overrides (`--values-file`, `--set`, `--set-json`, `--set-file`) require a chart directory. Exits `0` on success, `1` on failure.
 
@@ -98,13 +99,13 @@ Accepts a chart directory, `.tgz`, or `.tar.gz`. Values overrides (`--values-fil
 
 ```yaml
 deploy:
-  stage: deploy
-  image: ghcr.io/zyno-io/dag/cli:latest
-  script:
-    - dag-deploy ./chart
-      --server https://dag.example.com
-      --deploy-version $CI_COMMIT_SHA
-      --set image.tag=$CI_COMMIT_SHA
+    stage: deploy
+    image: ghcr.io/zyno-io/dag/cli:latest
+    script:
+        - dag-deploy ./chart
+          --server https://dag.example.com
+          --deploy-version $CI_COMMIT_SHA
+          --set image.tag=$CI_COMMIT_SHA
 ```
 
 Repo URL, job ID, and job token are auto-detected from GitLab CI environment variables.
@@ -113,19 +114,19 @@ Repo URL, job ID, and job token are auto-detected from GitLab CI environment var
 
 ```yaml
 deploy:
-  runs-on: ubuntu-latest
-  container:
-    image: ghcr.io/zyno-io/dag/cli:latest
-  steps:
-    - uses: actions/checkout@v4
-    - name: Deploy
-      run: |
-        dag-deploy ./chart \
-          --server https://dag.example.com \
-          --deploy-version ${{ github.sha }} \
-          --set image.tag=${{ github.sha }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    container:
+        image: ghcr.io/zyno-io/dag/cli:latest
+    steps:
+        - uses: actions/checkout@v4
+        - name: Deploy
+          run: |
+              dag-deploy ./chart \
+                --server https://dag.example.com \
+                --deploy-version ${{ github.sha }} \
+                --set image.tag=${{ github.sha }}
+          env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Server Deployment

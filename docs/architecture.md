@@ -23,17 +23,17 @@ DAG is a GitOps deployment automation system. It enables CI/CD pipelines to depl
 
 The project is a monorepo with three packages:
 
-| Package           | Description                                   |
-| ----------------- | --------------------------------------------- |
-| `packages/shared` | Shared TypeScript types and enums             |
-| `packages/server` | HTTP API server                               |
-| `packages/cli`    | CLI tool (`dag-deploy`)                       |
+| Package           | Description                       |
+| ----------------- | --------------------------------- |
+| `packages/shared` | Shared TypeScript types and enums |
+| `packages/server` | HTTP API server                   |
+| `packages/cli`    | CLI tool (`dag-deploy`)           |
 
 ## Request Flow
 
 ### 1. CI Pipeline Submits Deployment
 
-The CI pipeline packages a Helm chart and calls `dag-deploy`, which sends a `POST /api/deploy` request to the DAG server with the chart tarball, repo URL, job ID, job token, and version.
+The CI pipeline packages a Helm chart and calls `dag-deploy`, which sends a `POST /api/deploy` request to the DAG server with the chart tarball, repo URL, job ID, job token, optional environment name, and version.
 
 ### 2. Server Validates and Processes
 
@@ -41,7 +41,7 @@ The server:
 
 1. Looks up the **App** by the normalized repo URL
 2. Verifies the **job token** with the git provider (GitLab API) and resolves the branch
-3. Finds the **AppEnvironment** matching the branch
+3. Finds the **AppEnvironment** matching the branch and optional environment name
 4. Creates a **Deployment** record (status: `pending`)
 5. Kicks off deployment processing in the background
 

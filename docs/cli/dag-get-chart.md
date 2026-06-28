@@ -10,18 +10,19 @@ dag-get-chart <output-path> [options]
 
 ### Arguments
 
-| Argument        | Description                                |
-| --------------- | ------------------------------------------ |
+| Argument        | Description                                 |
+| --------------- | ------------------------------------------- |
 | `<output-path>` | File path to write the downloaded `.tgz` to |
 
 ### Options
 
-| Option                | Env Variable     | Default       | Description                       |
-| --------------------- | ---------------- | ------------- | --------------------------------- |
-| `--server <url>`      | `DAG_SERVER_URL` | —             | DAG server URL **(required)**     |
-| `--repo <url>`        | `DAG_REPO_URL`   | auto-detected | Override the repository URL       |
-| `--job-id <id>`       | `DAG_JOB_ID`     | auto-detected | Override the CI job ID            |
-| `--job-token <token>` | `DAG_JOB_TOKEN`  | auto-detected | Override the CI job token         |
+| Option                 | Env Variable      | Default       | Description                                                     |
+| ---------------------- | ----------------- | ------------- | --------------------------------------------------------------- |
+| `--server <url>`       | `DAG_SERVER_URL`  | —             | DAG server URL **(required)**                                   |
+| `--repo <url>`         | `DAG_REPO_URL`    | auto-detected | Override the repository URL                                     |
+| `--job-id <id>`        | `DAG_JOB_ID`      | auto-detected | Override the CI job ID                                          |
+| `--job-token <token>`  | `DAG_JOB_TOKEN`   | auto-detected | Override the CI job token                                       |
+| `--environment <name>` | `DAG_ENVIRONMENT` | —             | Target environment name when a branch has multiple environments |
 
 ### CI Auto-Detection
 
@@ -29,10 +30,10 @@ CI environment variables are auto-detected in the same way as [`dag-deploy`](./d
 
 ## Exit Codes
 
-| Code | Meaning                 |
-| ---- | ----------------------- |
-| `0`  | Chart downloaded        |
-| `1`  | Error (see stderr)      |
+| Code | Meaning            |
+| ---- | ------------------ |
+| `0`  | Chart downloaded   |
+| `1`  | Error (see stderr) |
 
 ## Examples
 
@@ -40,7 +41,8 @@ Download the chart in a GitLab CI pipeline:
 
 ```sh
 dag-get-chart ./deployed-chart.tgz \
-    --server https://dag.example.com
+    --server https://dag.example.com \
+    --environment production
 ```
 
 Download with explicit credentials:

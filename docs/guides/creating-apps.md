@@ -1,6 +1,6 @@
 # Creating Apps
 
-Apps are configured directly in the database. Each app maps a source repository to one or more deployment environments.
+Apps are configured directly in the database. Each app maps a source repository to one or more named deployment environments.
 
 ## 1. Register the App
 
@@ -40,12 +40,13 @@ See [Clusters](./clusters.md) for service account and CA certificate setup.
 
 ## 4. Create an App Environment
 
-Map a branch to an IAC repo path, cluster, and Helm configuration:
+Map a branch and environment name to an IAC repo path, cluster, and Helm configuration:
 
 | Field           | Type                | Description                             |
 | --------------- | ------------------- | --------------------------------------- |
 | `appId`         | `number`            | Foreign key to App                      |
 | `branch`        | `string`            | Git branch that triggers deployment     |
+| `name`          | `string`            | Target environment name                 |
 | `iacId`         | `number`            | Foreign key to IAC Repository           |
 | `iacPath`       | `string`            | Path within IAC repo to place the chart |
 | `clusterId`     | `number`            | Foreign key to Cluster                  |
@@ -56,9 +57,9 @@ Map a branch to an IAC repo path, cluster, and Helm configuration:
 
 ```sql
 INSERT INTO apps_environments
-  (app_id, branch, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
+  (app_id, branch, name, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
 VALUES
-  (1, 'main', 1, 'clusters/production/my-app', 1, 'flux', 'default', 'my-app');
+  (1, 'main', 'production', 1, 'clusters/production/my-app', 1, 'flux', 'default', 'my-app');
 ```
 
 ## Multiple Environments
@@ -68,13 +69,29 @@ You can map multiple branches to different environments. For example, deploy `de
 ```sql
 -- Staging
 INSERT INTO apps_environments
-  (app_id, branch, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
+  (app_id, branch, name, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
 VALUES
-  (1, 'develop', 1, 'clusters/staging/my-app', 1, 'flux', 'staging', 'my-app');
+  (1, 'develop', 'staging', 1, 'clusters/staging/my-app', 1, 'flux', 'staging', 'my-app');
 
 -- Production
 INSERT INTO apps_environments
-  (app_id, branch, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
+  (app_id, branch, name, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
 VALUES
-  (1, 'main', 1, 'clusters/production/my-app', 1, 'flux', 'production', 'my-app');
+  (1, 'main', 'production', 1, 'clusters/production/my-app', 1, 'flux', 'production', 'my-app');
+```
+
+You can also map the same source branch to multiple environments. This supports CI workflows where `main` deploys to staging automatically and an approved production job promotes the same commit:
+
+```sql
+-- Staging from main
+INSERT INTO apps_environments
+  (app_id, branch, name, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
+VALUES
+  (1, 'main', 'staging', 1, 'clusters/staging/my-app', 1, 'flux', 'staging', 'my-app');
+
+-- Production from main
+INSERT INTO apps_environments
+  (app_id, branch, name, iac_id, iac_path, cluster_id, helm_type, helm_namespace, helm_name)
+VALUES
+  (1, 'main', 'production', 1, 'clusters/production/my-app', 1, 'flux', 'production', 'my-app');
 ```

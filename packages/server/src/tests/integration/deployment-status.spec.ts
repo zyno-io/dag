@@ -1,13 +1,13 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import { createEntity, TestingHelpers, uuid7 } from '@zyno-io/dk-server-foundation';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
-import { createTestingFacade } from '../helpers/testing-facade';
-import { AppEntity } from '../../entities/app.entity';
 import { AppEnvironmentEntity } from '../../entities/app-environment.entity';
+import { AppEntity } from '../../entities/app.entity';
 import { ClusterEntity } from '../../entities/cluster.entity';
 import { DeploymentEntity } from '../../entities/deployment.entity';
 import { IacEntity } from '../../entities/iac.entity';
+import { createTestingFacade } from '../helpers/testing-facade';
 
 const tf = createTestingFacade();
 TestingHelpers.installStandardHooks(tf);
@@ -37,6 +37,7 @@ async function seedDeployment() {
     const appEnv = createEntity(AppEnvironmentEntity, {
         appId: app.id,
         branch: 'main',
+        name: 'main',
         iacId: iac.id,
         iacPath: 'charts/test-app',
         clusterId: cluster.id,

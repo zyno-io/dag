@@ -4,26 +4,26 @@
 
 ```yaml
 stages:
-  - build
-  - deploy
+    - build
+    - deploy
 
 build:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - docker build -t my-app:$CI_COMMIT_SHA .
-    - docker push my-app:$CI_COMMIT_SHA
+    stage: build
+    image: docker:latest
+    services:
+        - docker:dind
+    script:
+        - docker build -t my-app:$CI_COMMIT_SHA .
+        - docker push my-app:$CI_COMMIT_SHA
 
 deploy:
-  stage: deploy
-  image: ghcr.io/zyno-io/dag/cli:latest
-  script:
-    - dag-deploy ./chart
-      --server https://dag.example.com
-      --deploy-version $CI_COMMIT_SHA
-      --set image.tag=$CI_COMMIT_SHA
+    stage: deploy
+    image: ghcr.io/zyno-io/dag/cli:latest
+    script:
+        - dag-deploy ./chart
+          --server https://dag.example.com
+          --deploy-version $CI_COMMIT_SHA
+          --set image.tag=$CI_COMMIT_SHA
 ```
 
 In GitLab CI, `dag-deploy` auto-detects:
@@ -33,6 +33,36 @@ In GitLab CI, `dag-deploy` auto-detects:
 - **Job Token** from `CI_JOB_TOKEN`
 
 No additional configuration is needed.
+
+### Same-Branch Promotion
+
+When multiple DAG environments use the same source branch, pass the target environment name from each CI job. For example, a production job can require manual approval and then deploy the same `main` commit:
+
+```yaml
+stages:
+    - deploy
+    - promote
+
+deploy-staging:
+    stage: deploy
+    image: ghcr.io/zyno-io/dag/cli:latest
+    script:
+        - dag-deploy ./chart
+          --server https://dag.example.com
+          --environment staging
+          --deploy-version $CI_COMMIT_SHA
+
+deploy-production:
+    stage: promote
+    image: ghcr.io/zyno-io/dag/cli:latest
+    needs: [deploy-staging]
+    when: manual
+    script:
+        - dag-deploy ./chart
+          --server https://dag.example.com
+          --environment production
+          --deploy-version $CI_COMMIT_SHA
+```
 
 ## GitHub Actions
 
@@ -44,25 +74,25 @@ GitHub Actions support is planned but not yet implemented on the server side. Jo
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+    push:
+        branches: [main]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/zyno-io/dag/cli:latest
-    steps:
-      - uses: actions/checkout@v4
+    deploy:
+        runs-on: ubuntu-latest
+        container:
+            image: ghcr.io/zyno-io/dag/cli:latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Deploy
-        run: |
-          dag-deploy ./chart \
-            --server https://dag.example.com \
-            --deploy-version ${{ github.sha }} \
-            --set image.tag=${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Deploy
+              run: |
+                  dag-deploy ./chart \
+                    --server https://dag.example.com \
+                    --deploy-version ${{ github.sha }} \
+                    --set image.tag=${{ github.sha }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 The CLI auto-detects:
@@ -80,14 +110,14 @@ You can retrieve the currently deployed chart or values from the IaC repository 
 ```yaml
 # GitLab CI
 fetch-chart:
-  stage: prepare
-  image: ghcr.io/zyno-io/dag/cli:latest
-  script:
-    - dag-get-chart ./deployed-chart.tgz
-      --server https://dag.example.com
-  artifacts:
-    paths:
-      - deployed-chart.tgz
+    stage: prepare
+    image: ghcr.io/zyno-io/dag/cli:latest
+    script:
+        - dag-get-chart ./deployed-chart.tgz
+          --server https://dag.example.com
+    artifacts:
+        paths:
+            - deployed-chart.tgz
 ```
 
 ### Fetching Values as JSON
@@ -95,13 +125,13 @@ fetch-chart:
 ```yaml
 # GitLab CI
 fetch-values:
-  stage: prepare
-  image: ghcr.io/zyno-io/dag/cli:latest
-  script:
-    - dag-get-values --server https://dag.example.com > current-values.json
-  artifacts:
-    paths:
-      - current-values.json
+    stage: prepare
+    image: ghcr.io/zyno-io/dag/cli:latest
+    script:
+        - dag-get-values --server https://dag.example.com > current-values.json
+    artifacts:
+        paths:
+            - current-values.json
 ```
 
 Both `dag-get-chart` and `dag-get-values` use the same CI auto-detection as `dag-deploy` — no extra credentials are needed.
@@ -110,14 +140,15 @@ Both `dag-get-chart` and `dag-get-values` use the same CI auto-detection as `dag
 
 Instead of CLI flags, you can set environment variables. This is useful for configuring DAG once in your CI project settings:
 
-| Variable             | Description                                                    |
-| -------------------- | -------------------------------------------------------------- |
-| `DAG_SERVER_URL`     | DAG server URL                                                 |
-| `DAG_REPO_URL`       | Override auto-detected repo URL                                |
-| `DAG_JOB_ID`         | Override auto-detected job ID                                  |
-| `DAG_JOB_TOKEN`      | Override auto-detected job token                               |
-| `DAG_DEPLOY_VERSION` | Deployment version                                             |
-| `DAG_TIMEOUT`        | Client-side timeout for waiting on deployment status (seconds) |
+| Variable             | Description                                                     |
+| -------------------- | --------------------------------------------------------------- |
+| `DAG_SERVER_URL`     | DAG server URL                                                  |
+| `DAG_REPO_URL`       | Override auto-detected repo URL                                 |
+| `DAG_JOB_ID`         | Override auto-detected job ID                                   |
+| `DAG_JOB_TOKEN`      | Override auto-detected job token                                |
+| `DAG_ENVIRONMENT`    | Target environment name when a branch has multiple environments |
+| `DAG_DEPLOY_VERSION` | Deployment version                                              |
+| `DAG_TIMEOUT`        | Client-side timeout for waiting on deployment status (seconds)  |
 
 ## Using the Docker Image
 
@@ -126,11 +157,11 @@ The `ghcr.io/zyno-io/dag/cli` image contains `dag-deploy`, `dag-get-chart`, and 
 ```yaml
 # GitLab CI
 deploy:
-  image: ghcr.io/zyno-io/dag/cli:latest
+    image: ghcr.io/zyno-io/dag/cli:latest
 
 # GitHub Actions
 jobs:
-  deploy:
-    container:
-      image: ghcr.io/zyno-io/dag/cli:latest
+    deploy:
+        container:
+            image: ghcr.io/zyno-io/dag/cli:latest
 ```

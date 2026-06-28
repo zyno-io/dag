@@ -13,16 +13,16 @@
 
 ### PostgreSQL
 
-| Variable             | Type      | Default  | Description       |
-| -------------------- | --------- | -------- | ----------------- |
-| `PG_HOST`            | `string`  | —        | Database host     |
-| `PG_PORT`            | `number`  | `5432`   | Database port     |
-| `PG_USER`            | `string`  | —        | Database user     |
-| `PG_PASSWORD_SECRET` | `string`  | —        | Database password |
-| `PG_DATABASE`        | `string`  | —        | Database name     |
-| `PG_SCHEMA`          | `string`  | `public` | Database schema   |
-| `PG_SSL`                      | `boolean` | `false`  | Enable SSL                       |
-| `PG_SSL_REJECT_UNAUTHORIZED`  | `boolean` | `true`   | Reject unauthorized certificates |
+| Variable                     | Type      | Default  | Description                      |
+| ---------------------------- | --------- | -------- | -------------------------------- |
+| `PG_HOST`                    | `string`  | —        | Database host                    |
+| `PG_PORT`                    | `number`  | `5432`   | Database port                    |
+| `PG_USER`                    | `string`  | —        | Database user                    |
+| `PG_PASSWORD_SECRET`         | `string`  | —        | Database password                |
+| `PG_DATABASE`                | `string`  | —        | Database name                    |
+| `PG_SCHEMA`                  | `string`  | `public` | Database schema                  |
+| `PG_SSL`                     | `boolean` | `false`  | Enable SSL                       |
+| `PG_SSL_REJECT_UNAUTHORIZED` | `boolean` | `true`   | Reject unauthorized certificates |
 
 ### Observability
 
@@ -48,10 +48,10 @@ Register each application repository that will deploy through DAG.
 
 Configure the Infrastructure-as-Code repositories where charts will be pushed.
 
-| Field         | Type     | Description                                            |
-| ------------- | -------- | ------------------------------------------------------ |
-| `name`        | `string` | Human-readable name                                    |
-| `repoUrl`     | `string` | Git repository URL                                     |
+| Field         | Type     | Description                                                |
+| ------------- | -------- | ---------------------------------------------------------- |
+| `name`        | `string` | Human-readable name                                        |
+| `repoUrl`     | `string` | Git repository URL                                         |
 | `accessToken` | `string` | Git access token (used for HTTP Basic push authentication) |
 
 ### Clusters
@@ -67,12 +67,13 @@ Register Kubernetes clusters that DAG will monitor for deployment status.
 
 ### App Environments
 
-Map an app's branch to a specific IAC repo path, cluster, and Helm configuration.
+Map an app's branch and environment name to a specific IAC repo path, cluster, and Helm configuration.
 
 | Field           | Type                | Description                             |
 | --------------- | ------------------- | --------------------------------------- |
 | `appId`         | `number`            | Foreign key to App                      |
 | `branch`        | `string`            | Git branch name (e.g. `main`)           |
+| `name`          | `string`            | Target environment name (e.g. `prod`)   |
 | `iacId`         | `number`            | Foreign key to IAC Repository           |
 | `iacPath`       | `string`            | Path within IAC repo to place the chart |
 | `clusterId`     | `number`            | Foreign key to Cluster                  |
