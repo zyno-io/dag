@@ -26,9 +26,11 @@ stages:
 .node:
   before_script:
     - apk add --no-cache git
-    # The iac-repo service tests do real simple-git commits, which fail without an identity.
+    # The iac-repo service tests do real simple-git commits + push to a "main" branch, so they
+    # need an identity and the default branch name (the runner's git otherwise defaults to master).
     - git config --global user.email "ci@zyno.io"
     - git config --global user.name "CI"
+    - git config --global init.defaultBranch main
     - corepack enable
     - yarn --immutable
 
