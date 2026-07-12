@@ -1,4 +1,4 @@
-import { BaseAppConfig } from '@zyno-io/dk-server-foundation';
+import { BaseAppConfig } from '@zyno-io/ts-server-foundation';
 
 export class AppConfig extends BaseAppConfig {
     DATA_DIR: string = '/tmp/dag';

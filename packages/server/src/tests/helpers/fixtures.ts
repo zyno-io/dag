@@ -1,4 +1,4 @@
-import { TestingHelpers } from '@zyno-io/dk-server-foundation';
+import { TestingHelpers } from '@zyno-io/ts-server-foundation';
 
 import { AppEnvironmentEntity } from '../../entities/app-environment.entity';
 import { AppEntity } from '../../entities/app.entity';

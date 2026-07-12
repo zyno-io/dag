@@ -1,6 +1,6 @@
-import { describe, it } from 'node:test';
+import { TestingHelpers } from '@zyno-io/ts-server-foundation';
 import assert from 'node:assert/strict';
-import { TestingHelpers } from '@zyno-io/dk-server-foundation';
+import { describe, it } from 'node:test';
 
 import { createTestingFacade } from '../helpers/testing-facade';
 

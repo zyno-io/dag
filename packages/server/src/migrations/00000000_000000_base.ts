@@ -1,4 +1,4 @@
-import { createMigration } from '@zyno-io/dk-server-foundation';
+import { createMigration } from '@zyno-io/ts-server-foundation';
 
 export default createMigration(async db => {
     // Table: apps

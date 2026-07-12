@@ -1,10 +1,10 @@
-import { ScopedLogger } from '@deepkit/logger';
-import { decryptField } from '../helpers/crypto';
 import * as k8s from '@kubernetes/client-node';
+import { ScopedLogger } from '@zyno-io/ts-server-foundation';
 
 import { AppConfig } from '../config';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
+import { decryptField } from '../helpers/crypto';
 
 class HelmReleaseFailedError extends Error {
     constructor(message: string) {
@@ -64,7 +64,12 @@ export class K8sMonitorService {
         }
     }
 
-    async watchDeployment(cluster: ClusterEntity, appEnvironment: AppEnvironmentEntity, callbacks: MonitorCallbacks, preDeploySnapshot?: PreDeploySnapshot | null): Promise<void> {
+    async watchDeployment(
+        cluster: ClusterEntity,
+        appEnvironment: AppEnvironmentEntity,
+        callbacks: MonitorCallbacks,
+        preDeploySnapshot?: PreDeploySnapshot | null
+    ): Promise<void> {
         const timeoutMs = this.config.DEPLOY_MONITOR_TIMEOUT_SECS * 1000;
 
         if (appEnvironment.helmType === 'flux') {
@@ -152,7 +157,9 @@ export class K8sMonitorService {
             }
 
             if (Date.now() - startTime >= timeoutMs) {
-                throw new Error(`Timeout waiting for Flux to detect new revision for ${helmReleaseName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`);
+                throw new Error(
+                    `Timeout waiting for Flux to detect new revision for ${helmReleaseName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`
+                );
             }
         }
 
@@ -192,7 +199,9 @@ export class K8sMonitorService {
                     }
                 }
 
-                await callbacks.onStatusChange(`HelmRelease ${helmReleaseName} on ${cluster.name}: Ready=${readyStatus}, Reconciling=${reconcilingStatus}`);
+                await callbacks.onStatusChange(
+                    `HelmRelease ${helmReleaseName} on ${cluster.name}: Ready=${readyStatus}, Reconciling=${reconcilingStatus}`
+                );
             } catch (err: unknown) {
                 if (err instanceof HelmReleaseFailedError) {
                     throw err;
@@ -259,7 +268,9 @@ export class K8sMonitorService {
             }
 
             if (Date.now() - startTime >= timeoutMs) {
-                throw new Error(`Timeout waiting for new Helm release version for ${helmName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`);
+                throw new Error(
+                    `Timeout waiting for new Helm release version for ${helmName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`
+                );
             }
         }
 

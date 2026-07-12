@@ -1,5 +1,4 @@
-import { AutoIncrement, entity, PrimaryKey, Unique } from '@deepkit/type';
-import { BaseEntity, HasDefault } from '@zyno-io/dk-server-foundation';
+import { AutoIncrement, BaseEntity, entity, HasDefault, PrimaryKey, Unique } from '@zyno-io/ts-server-foundation';
 @entity.name('apps')
 export class AppEntity extends BaseEntity {
     id!: number & AutoIncrement & PrimaryKey;

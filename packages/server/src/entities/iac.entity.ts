@@ -1,5 +1,4 @@
-import { AutoIncrement, entity, PrimaryKey } from '@deepkit/type';
-import { BaseEntity, HasDefault } from '@zyno-io/dk-server-foundation';
+import { AutoIncrement, BaseEntity, entity, HasDefault, PrimaryKey } from '@zyno-io/ts-server-foundation';
 
 @entity.name('iacs')
 export class IacEntity extends BaseEntity {

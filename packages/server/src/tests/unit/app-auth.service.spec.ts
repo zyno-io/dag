@@ -1,4 +1,4 @@
-import { HttpBadRequestError, HttpNotFoundError, HttpUnauthorizedError } from '@deepkit/http';
+import { HttpBadRequestError, HttpNotFoundError, HttpUnauthorizedError } from '@zyno-io/ts-server-foundation';
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach, mock } from 'node:test';
 

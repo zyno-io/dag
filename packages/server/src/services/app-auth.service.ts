@@ -1,5 +1,4 @@
-import { HttpBadRequestError, HttpNotFoundError, HttpUnauthorizedError } from '@deepkit/http';
-import { ScopedLogger } from '@deepkit/logger';
+import { HttpBadRequestError, HttpNotFoundError, HttpUnauthorizedError, ScopedLogger } from '@zyno-io/ts-server-foundation';
 
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { AppEntity } from '../entities/app.entity';

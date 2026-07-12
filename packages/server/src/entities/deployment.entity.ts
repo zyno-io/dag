@@ -1,5 +1,4 @@
-import { entity, PrimaryKey } from '@deepkit/type';
-import { BaseEntity, HasDefault, UuidString, uuid7 } from '@zyno-io/dk-server-foundation';
+import { BaseEntity, entity, HasDefault, PrimaryKey, UuidString } from '@zyno-io/ts-server-foundation';
 @entity.name('apps_deployments')
 export class DeploymentEntity extends BaseEntity {
     id!: UuidString & PrimaryKey & HasDefault;

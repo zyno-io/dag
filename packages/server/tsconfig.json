@@ -9,11 +9,18 @@
         "module": "NodeNext",
         "preserveSymlinks": true,
         "esModuleInterop": true,
+        "types": ["node"],
+        "rootDir": "./src",
         "outDir": "./dist",
         "skipLibCheck": true,
         "incremental": false,
         "forceConsistentCasingInFileNames": true,
-        "isolatedModules": true
+        "isolatedModules": true,
+        "plugins": [
+            {
+                "transform": "./node_modules/@zyno-io/ts-server-foundation/dist/src/type-compiler/index.cjs"
+            }
+        ]
     },
     "include": ["src/**/*"],
     "reflection": true

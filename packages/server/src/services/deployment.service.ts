@@ -1,6 +1,6 @@
 import type { DeploymentStatus, DeploymentStatusEvent, GitProvider } from '@zyno-io/dag-shared';
 
-import { ScopedLogger } from '@deepkit/logger';
+import { ScopedLogger } from '@zyno-io/ts-server-foundation';
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 

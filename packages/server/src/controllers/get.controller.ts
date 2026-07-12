@@ -1,4 +1,4 @@
-import { http, HttpBody, HttpBadRequestError, HttpNotFoundError, HttpResponse } from '@deepkit/http';
+import { http, HttpBody, HttpBadRequestError, HttpNotFoundError, HttpResponse } from '@zyno-io/ts-server-foundation';
 import * as yaml from 'js-yaml';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';

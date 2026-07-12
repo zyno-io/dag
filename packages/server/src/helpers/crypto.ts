@@ -1,4 +1,4 @@
-import { Crypto, BaseEntity } from '@zyno-io/dk-server-foundation';
+import { Crypto, BaseEntity } from '@zyno-io/ts-server-foundation';
 
 const ENCRYPTED_PREFIX = 'enc:';
 

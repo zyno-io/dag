@@ -1,6 +1,15 @@
-import { http, HttpBadRequestError, HttpBody, HttpRequest, HttpResponse, UploadedFile } from '@deepkit/http';
-import { ScopedLogger } from '@deepkit/logger';
-import { createEntity, uuid7 } from '@zyno-io/dk-server-foundation';
+import {
+    createEntity,
+    FileUpload,
+    http,
+    HttpBadRequestError,
+    HttpBody,
+    HttpPath,
+    HttpRequest,
+    HttpResponse,
+    ScopedLogger,
+    uuid7
+} from '@zyno-io/ts-server-foundation';
 import * as fs from 'node:fs/promises';
 
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
@@ -16,7 +25,7 @@ interface DeployBody {
     jobToken: string;
     environment?: string;
     version: string;
-    chart: UploadedFile;
+    chart: FileUpload;
 }
 
 @http.controller('/api')
@@ -64,7 +73,7 @@ export class DeployController {
     }
 
     @http.GET('deployments/:id/events')
-    async events(id: string, request: HttpRequest, response: HttpResponse): Promise<void> {
+    async events(id: HttpPath<string>, request: HttpRequest, response: HttpResponse): Promise<void> {
         // Set SSE headers
         response.setHeader('Content-Type', 'text/event-stream');
         response.setHeader('Cache-Control', 'no-cache');

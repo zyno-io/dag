@@ -1,9 +1,6 @@
-import { eventDispatcher } from '@deepkit/event';
-import { onServerBootstrapDone } from '@deepkit/framework';
-import { ScopedLogger } from '@deepkit/logger';
-import { onServerShutdownRequested } from '@zyno-io/dk-server-foundation';
+import { eventDispatcher, onServerMainBootstrapDone, onServerShutdownRequested, ScopedLogger } from '@zyno-io/ts-server-foundation';
 
-import { DB } from '../database';
+import { Db } from '../database';
 import { DeploymentEntity } from '../entities/deployment.entity';
 import { getDeploymentChannel } from './deployment.service';
 
@@ -18,7 +15,7 @@ export class DeploymentLifecycleListener {
     private inflightDeployments = new Set<Promise<void>>();
 
     constructor(
-        private db: DB,
+        private db: Db,
         private logger: ScopedLogger
     ) {}
 
@@ -28,11 +25,12 @@ export class DeploymentLifecycleListener {
         promise.finally(() => this.inflightDeployments.delete(promise));
     }
 
-    @eventDispatcher.listen(onServerBootstrapDone)
+    @eventDispatcher.listen(onServerMainBootstrapDone)
     async onBootstrap(): Promise<void> {
         let stale: DeploymentEntity[];
         try {
-            stale = await this.db.query(DeploymentEntity)
+            stale = await this.db
+                .query(DeploymentEntity)
                 .filter({ status: { $in: [...INCOMPLETE_STATUSES] } })
                 .find();
         } catch {
@@ -49,7 +47,8 @@ export class DeploymentLifecycleListener {
         // text vs enum types in CASE branches even with an implicit cast.
         const message = 'Server restarted before IAC repo push completed';
         for (const deployment of stale) {
-            await this.db.query(DeploymentEntity)
+            await this.db
+                .query(DeploymentEntity)
                 .filter({ id: deployment.id })
                 .patchOne({ status: 'failed', statusMessage: message, updatedAt: new Date() });
 

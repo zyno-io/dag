@@ -1,4 +1,4 @@
-import { createEntity, TestingHelpers, uuid7 } from '@zyno-io/dk-server-foundation';
+import { createEntity, TestingHelpers, uuid7 } from '@zyno-io/ts-server-foundation';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
