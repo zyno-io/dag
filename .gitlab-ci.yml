@@ -1,0 +1,159 @@
+# Primary CI for DAG. GitLab is the source of truth; a mirror job force-pushes main + tags to
+# GitHub on success, where release.yml (ghcr images + GitHub Release), chart.yml (zyno-io/charts)
+# and the docs workflow (GitHub Pages) react to the mirrored refs.
+#
+# Required CI/CD variables (Settings → CI/CD → Variables):
+#   GITHUB_SSH_KEY_B64   base64 of an SSH private key that is a deploy key with write access to
+#                        github.com/zyno-io/dag (used by the mirror job). Masked.
+#   PIXELCI_*            per pixelci onboarding (e.g. PIXELCI_APP_ID, PIXELCI_VCS_ID). The pixelci
+#                        CLI also reads CI_JOB_TOKEN + CI_PROJECT_URL automatically.
+
+image: node:24-alpine
+
+default:
+  interruptible: true
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+stages:
+  - test
+  - vrt
+  - release
+  - mirror
+
+.node:
+  before_script:
+    - apk add --no-cache git
+    # The iac-repo service tests do real simple-git commits, which fail without an identity.
+    - git config --global user.email "ci@zyno.io"
+    - git config --global user.name "CI"
+    - corepack enable
+    - yarn --immutable
+
+# Build every package and run the server + CLI suites against a real Postgres, exactly as the
+# GitHub Actions test job did before the move.
+build-and-test:
+  stage: test
+  extends: .node
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+      variables:
+        POSTGRES_USER: dag
+        POSTGRES_PASSWORD: dag
+        POSTGRES_DB: dag_test
+  variables:
+    PG_HOST: postgres
+    PG_PORT: '5432'
+    PG_USER: dag
+    PG_PASSWORD_SECRET: dag
+    PG_DATABASE: dag_test
+    CRYPTO_SECRET: test-crypto-secret-change-me-32c
+    DEPLOY_MONITOR_TIMEOUT_SECS: '300'
+  script:
+    - yarn workspace @zyno-io/dag-shared build
+    - yarn workspace @zyno-io/dag build
+    - yarn workspace @zyno-io/dag-cli build
+    # The UI is typed against the server's OpenAPI schema, so dump it and regenerate the client.
+    - yarn workspace @zyno-io/dag openapi
+    - yarn workspace @zyno-io/dag-ui gen
+    - yarn workspace @zyno-io/dag-ui build
+    - yarn workspace @zyno-io/dag test
+    - yarn workspace @zyno-io/dag-cli test
+
+# Hermetic UI end-to-end: mocks every /api call, so it needs only the Vite dev server. Produces
+# the screenshots the pixelci job diffs against its hosted baseline.
+e2e:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.61.1-jammy
+  before_script:
+    - corepack enable
+    - yarn --immutable
+  script:
+    - yarn workspace @zyno-io/dag-shared build
+    - yarn workspace @zyno-io/dag build
+    - yarn workspace @zyno-io/dag openapi
+    - yarn workspace @zyno-io/dag-ui gen
+    - yarn workspace @zyno-io/dag-ui test:e2e
+  artifacts:
+    when: always
+    paths:
+      - packages/ui/screenshots
+      - packages/ui/playwright-report
+    expire_in: 1 week
+
+# Visual regression. pixelci reads CI_JOB_TOKEN + CI_PROJECT_URL from the GitLab environment to
+# authenticate and key the baseline — which is why it belongs here and not in GitHub Actions.
+visual-regression:
+  stage: vrt
+  needs:
+    - e2e
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /\[skip vrt\]/
+      when: never
+    - when: on_success
+  image: ghcr.io/zyno-io/pixelci/cli
+  variables:
+    PIXELCI_IMAGES_PATH: packages/ui/screenshots
+  script: pixelci
+
+# On main, when the root version changed, propagate it across packages + the chart and tag it.
+# GitHub's release.yml builds images from the mirrored tag, so GitLab owns tagging. The
+# "[skip ci]" on the sync commit prevents a pipeline loop; the version-vs-tag check is the backstop.
+release:
+  stage: release
+  extends: .node
+  # Full history so `git describe --tags` sees the latest tag and the push isn't shallow.
+  variables:
+    GIT_DEPTH: '0'
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - |
+      VERSION=$(node -p "require('./package.json').version")
+      LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+      if [ "$LATEST_TAG" = "v$VERSION" ]; then
+        echo "Version unchanged (latest tag: $LATEST_TAG); nothing to tag."
+        exit 0
+      fi
+
+      bash scripts/sync-version.sh
+
+      git config user.email "ci@zyno.io"
+      git config user.name "CI"
+      git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+
+      git add -A
+      git commit -m "chore: sync version ${VERSION} [skip ci]" || echo "nothing to commit"
+      git tag "v${VERSION}"
+      git push origin "HEAD:${CI_DEFAULT_BRANCH}"
+      git push origin "v${VERSION}"
+
+# Runs on every main pipeline so GitHub's main stays in sync. Re-fetches from GitLab first so it
+# carries any commit + tag the release job just created, then force-pushes both to GitHub.
+mirror:
+  stage: mirror
+  # Full history so the force-push to GitHub carries complete commit + tag ancestry.
+  variables:
+    GIT_DEPTH: '0'
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  image:
+    name: alpine/git
+    entrypoint: ['']
+  script:
+    - |
+      git fetch "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "${CI_DEFAULT_BRANCH}" --tags
+
+      export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"
+      mkdir -p ~/.ssh
+      echo "$GITHUB_SSH_KEY_B64" | base64 -d > ~/.ssh/id_ed25519
+      chmod 600 ~/.ssh/id_ed25519
+
+      git remote add github git@github.com:zyno-io/dag.git
+      git push github "FETCH_HEAD:${CI_DEFAULT_BRANCH}" --force
+      git push github --tags --force

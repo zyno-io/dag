@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src/openapi-client-generated/
+screenshots/
+test-results/
+playwright-report/
+*.log

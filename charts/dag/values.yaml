@@ -28,6 +28,20 @@ config:
   appEnv: production
   deployMonitorTimeoutSecs: 300
   cryptoSecret: ''
+  # Signs management-UI session tokens. Rotating it logs everyone out.
+  authJwtSecret: ''
+  # Public origin of the management UI; the GitLab OAuth redirect must land here.
+  publicBaseUrl: ''
+  # Optional extra comma-separated origins allowed as OAuth redirect targets.
+  oauthRedirectOrigins: ''
+
+# GitLab is both how people sign in to the management UI and the authority on what they may
+# do: permissions come from each user's access to the IaC repository an environment deploys
+# into. Register an OAuth application with scope `api` and redirect URI <publicBaseUrl>/login.
+gitlab:
+  url: https://gitlab.com
+  oauthClientId: ''
+  oauthClientSecret: ''
 
 service:
   type: ClusterIP

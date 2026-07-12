@@ -57,6 +57,7 @@ export class DeployController {
             ciJobId: jobId,
             version,
             commitSha: null,
+            sourceCommitSha: ciCommitSha,
             statusMessage: null
         });
         await deployment.save();

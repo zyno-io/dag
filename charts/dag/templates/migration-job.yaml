@@ -22,7 +22,9 @@ spec:
         - name: migrate
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["node", "dist/bootstrap.js", "migration:run"]
+          # The compiled migrations live in dist/migrations (this package builds with
+          # rootDir: "./src"), not the foundation's default dist/src/migrations.
+          command: ["node", "dist/bootstrap.js", "migrate:run", "--migrations-dir", "dist/migrations"]
           envFrom:
             - configMapRef:
                 name: {{ include "dag.fullname" . }}

@@ -8,6 +8,7 @@ COPY .yarn .yarn
 COPY packages/shared/package.json packages/shared/
 COPY packages/cli/package.json packages/cli/
 COPY packages/server/package.json packages/server/
+COPY packages/ui/package.json packages/ui/
 
 RUN yarn install --immutable
 
@@ -29,6 +30,7 @@ COPY .yarn .yarn
 COPY packages/shared/package.json packages/shared/
 COPY packages/cli/package.json packages/cli/
 COPY packages/server/package.json packages/server/
+COPY packages/ui/package.json packages/ui/
 
 RUN yarn workspaces focus @zyno-io/dag-cli --production
 

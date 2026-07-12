@@ -6,7 +6,7 @@ VERSION=$(node -p "require('$ROOT_DIR/package.json').version")
 
 echo "Syncing version $VERSION across all packages..."
 
-for pkg in shared server cli; do
+for pkg in shared server cli ui; do
     PKG_JSON="$ROOT_DIR/packages/$pkg/package.json"
     node -e "
         const fs = require('fs');

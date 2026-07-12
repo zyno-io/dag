@@ -1,0 +1,112 @@
+@reference "tailwindcss";
+
+html,
+body {
+    @apply h-full m-0 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #111827;
+}
+
+html.dark,
+html.dark body {
+    color: #e5e7eb;
+    background-color: #0a0a0a;
+}
+
+body {
+    @apply flex flex-col;
+}
+
+/* Bare elements are styled here so screens can write plain HTML and stay component-free. */
+button {
+    @apply px-3 py-1.5 rounded-md border border-neutral-500/30 cursor-pointer text-sm bg-transparent transition-colors hover:bg-neutral-500/10;
+}
+
+button.primary {
+    @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-500;
+}
+
+button.danger {
+    @apply text-red-600 border-red-600/40 hover:bg-red-600/10;
+}
+
+button:disabled {
+    @apply opacity-50 cursor-not-allowed hover:bg-transparent;
+}
+
+button.primary:disabled {
+    @apply hover:bg-blue-600;
+}
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+    @apply px-2.5 py-1.5 rounded-md border border-neutral-500/30 bg-transparent text-sm w-full transition-colors;
+}
+
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+    @apply outline-none border-blue-500 ring-2 ring-blue-500/20;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+    @apply h-4 w-4 cursor-pointer accent-blue-600;
+}
+
+label {
+    @apply flex flex-col gap-1 text-sm;
+}
+
+h1 {
+    @apply text-2xl font-semibold tracking-tight;
+}
+
+h2 {
+    @apply text-xl font-semibold tracking-tight;
+}
+
+a {
+    @apply text-blue-600 hover:underline cursor-pointer;
+}
+
+html.dark a {
+    @apply text-blue-400;
+}
+
+code,
+.mono {
+    @apply font-mono text-xs;
+}
+
+/* vue-foundation ships only minimal modal chrome, so without these the buttons land flush
+   against the modal edges and the destructive variant only sets `color: red` — which would
+   give red text on our blue primary button. */
+.vf-modal-wrap {
+    @apply bg-black/40;
+}
+
+.vf-modal {
+    @apply bg-white rounded-lg border border-neutral-500/20 shadow-xl min-w-[400px];
+}
+
+html.dark .vf-modal {
+    @apply bg-neutral-900 border-neutral-700;
+}
+
+.vf-modal-header {
+    @apply px-5 py-4 border-b border-neutral-500/20 font-semibold text-base flex items-center justify-between;
+}
+
+.vf-modal-content {
+    @apply px-4 py-3 text-sm;
+}
+
+.vf-modal-footer {
+    @apply px-5 py-3 border-t border-neutral-500/20 flex gap-2 justify-end;
+}
+
+.vf-modal-wrap.vf-alert.destructive .vf-modal-footer button.primary {
+    @apply bg-red-600 border-red-600 text-white hover:bg-red-500;
+}

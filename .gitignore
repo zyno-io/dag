@@ -11,3 +11,5 @@ dist/
 .env.local
 .env.*.local
 openapi.yaml
+# The management UI bundle, built into the server package and served from there.
+packages/server/static/

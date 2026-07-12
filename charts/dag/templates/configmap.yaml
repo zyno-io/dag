@@ -17,3 +17,9 @@ data:
   PG_SSL: {{ .Values.postgres.ssl | quote }}
   PG_SSL_REJECT_UNAUTHORIZED: {{ .Values.postgres.sslRejectUnauthorized | quote }}
   DEPLOY_MONITOR_TIMEOUT_SECS: {{ .Values.config.deployMonitorTimeoutSecs | quote }}
+  GITLAB_URL: {{ .Values.gitlab.url | quote }}
+  GITLAB_OAUTH_CLIENT_ID: {{ .Values.gitlab.oauthClientId | quote }}
+  PUBLIC_BASE_URL: {{ .Values.config.publicBaseUrl | quote }}
+{{- with .Values.config.oauthRedirectOrigins }}
+  OAUTH_REDIRECT_ORIGINS: {{ . | quote }}
+{{- end }}

@@ -6,8 +6,9 @@
     "scripts": {
         "clean": "tsf-dev clean",
         "build": "tsf-dev build",
+        "openapi": "node dist/bootstrap.js openapi:generate",
         "dev": "PORT=${PORT:-3000} tsf-dev run -- server:start",
-        "migrate": "tsf-dev migrate",
+        "migrate": "tsf-dev migrate --migrations-dir dist/migrations",
         "migrate:create": "tsf-dev migrate:create",
         "migrate:reset": "tsf-dev migrate:reset",
         "test": "tsf-dev test",

@@ -5,6 +5,7 @@ export class DeploymentEntity extends BaseEntity {
     appEnvironmentId!: number;
     ciJobId!: string;
     commitSha!: string | null;
+    sourceCommitSha!: string | null;
     version!: string;
     status: ('pending' | 'validating' | 'pushing' | 'pushed' | 'monitoring' | 'deployed' | 'failed') & HasDefault = 'pending';
     statusMessage!: string | null;

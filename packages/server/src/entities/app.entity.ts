@@ -2,6 +2,7 @@ import { AutoIncrement, BaseEntity, entity, HasDefault, PrimaryKey, Unique } fro
 @entity.name('apps')
 export class AppEntity extends BaseEntity {
     id!: number & AutoIncrement & PrimaryKey;
+    name!: string;
     gitProvider!: 'gitlab' | 'github';
     repoUrl!: string & Unique;
     createdAt: Date & HasDefault = new Date();

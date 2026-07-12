@@ -5,10 +5,12 @@
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "scripts": {
-        "build": "tsc",
+        "build": "ttsc",
         "clean": "rm -rf dist"
     },
     "devDependencies": {
+        "@zyno-io/ts-server-foundation": "26.712.36",
+        "ttsc": "0.18.3",
         "typescript": "7.0.2"
     }
 }

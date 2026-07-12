@@ -2,7 +2,12 @@
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "./dist",
-        "rootDir": "./src"
+        "rootDir": "./src",
+        "plugins": [
+            {
+                "transform": "./node_modules/@zyno-io/ts-server-foundation/dist/src/type-compiler/index.cjs"
+            }
+        ]
     },
     "include": ["src/**/*"],
     "reflection": true

@@ -7,6 +7,7 @@ import { IacEntity } from '../../entities/iac.entity';
 
 export const appFixtures = TestingHelpers.defineEntityFixtures(AppEntity, {
     defaultApp: {
+        name: 'my-app',
         gitProvider: 'gitlab',
         repoUrl: 'https://gitlab.example.com/org/my-app'
     }

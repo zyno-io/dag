@@ -14,6 +14,7 @@ TestingHelpers.installStandardHooks(tf);
 
 async function seedDeployment() {
     const app = createEntity(AppEntity, {
+        name: 'test-app',
         gitProvider: 'gitlab',
         repoUrl: 'https://gitlab.example.com/org/test-app'
     });
