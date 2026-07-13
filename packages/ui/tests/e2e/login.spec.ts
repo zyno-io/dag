@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { VRT_NOW } from './fixtures';
+import { iacs, sessionUser, VRT_NOW } from './fixtures';
 import { expectMinScreenshotSize, forceLightTheme, json, SCREENSHOTS_DIR } from './helpers';
 
 test('login page', async ({ page }) => {
@@ -18,4 +18,28 @@ test('login page', async ({ page }) => {
     const path = `${SCREENSHOTS_DIR}/login.png`;
     await page.screenshot({ path, fullPage: true });
     expectMinScreenshotSize(path, 8_000);
+});
+
+test('OAuth callback exchanges the code after initial router navigation', async ({ page }) => {
+    await forceLightTheme(page);
+    await json(page, '**/api/session/me', sessionUser);
+    await json(page, '**/api/iacs', iacs);
+
+    let loginRequests = 0;
+    await page.route('**/api/session/login', async route => {
+        loginRequests++;
+        expect(route.request().method()).toBe('POST');
+        expect(route.request().postDataJSON()).toEqual({ code: 'oauth-code', state: 'oauth-state' });
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ jwt: 'oauth-jwt', returnPath: '/login' })
+        });
+    });
+
+    await page.goto('/login?code=oauth-code&state=oauth-state');
+
+    await expect.poll(() => loginRequests).toBe(1);
+    await expect(page).toHaveURL('/login');
+    expect(await page.evaluate(() => localStorage.getItem('dag:jwt'))).toBe('oauth-jwt');
 });

@@ -17,4 +17,7 @@ setupVf(app);
 app.use(createPinia());
 app.use(router);
 
+// App.vue renders Login directly while there is no session. Wait for the initial navigation so
+// that an OAuth callback's code and state are present before Login's onMounted hook runs.
+await router.isReady();
 app.mount(document.body);
