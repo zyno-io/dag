@@ -105,7 +105,8 @@ visual-regression:
 
 # On main, when the root version changed, propagate it across packages + the chart and tag it.
 # GitHub's release.yml builds images from the mirrored tag, so GitLab owns tagging. The
-# "[skip ci]" on the sync commit prevents a pipeline loop; the version-vs-tag check is the backstop.
+# The GitLab-only ci.skip push option prevents a pipeline loop without suppressing the GitHub
+# workflows that publish images and charts from the mirrored commit and tag.
 release:
   stage: release
   extends: .node
@@ -130,9 +131,9 @@ release:
       git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
 
       git add -A
-      git commit -m "chore: sync version ${VERSION} [skip ci]" || echo "nothing to commit"
+      git commit -m "chore: sync version ${VERSION}" || echo "nothing to commit"
       git tag "v${VERSION}"
-      git push origin "HEAD:${CI_DEFAULT_BRANCH}"
+      git push -o ci.skip origin "HEAD:${CI_DEFAULT_BRANCH}"
       git push origin "v${VERSION}"
 
 # Runs on every main pipeline so GitHub's main stays in sync. Re-fetches from GitLab first so it
