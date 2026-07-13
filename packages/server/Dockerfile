@@ -58,11 +58,14 @@ COPY --chown=app:app --from=deps /app/.yarn .yarn
 COPY --chown=app:app --from=deps /app/node_modules node_modules
 COPY --chown=app:app --from=deps /app/packages/shared/package.json packages/shared/
 COPY --chown=app:app --from=deps /app/packages/server/package.json packages/server/
+COPY --chown=app:app --from=deps /app/packages/server/node_modules packages/server/node_modules
 COPY --chown=app:app --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --chown=app:app --from=builder /app/packages/server/dist packages/server/dist
 COPY --chown=app:app --from=builder /app/packages/server/static packages/server/static
 
 WORKDIR /app/packages/server
+
+RUN node -e "require('@zyno-io/ts-server-foundation/otel')"
 
 EXPOSE 3000
 
