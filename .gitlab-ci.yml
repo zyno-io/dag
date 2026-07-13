@@ -123,7 +123,7 @@ release:
         exit 0
       fi
 
-      bash scripts/sync-version.sh
+      sh scripts/sync-version.sh
 
       git config user.email "ci@zyno.io"
       git config user.name "CI"

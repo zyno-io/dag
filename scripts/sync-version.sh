@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION=$(node -p "require('$ROOT_DIR/package.json').version")
