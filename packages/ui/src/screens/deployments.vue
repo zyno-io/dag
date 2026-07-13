@@ -5,26 +5,43 @@
         <div class="filters">
             <label>
                 App
-                <select v-model.number="filters.appId" @change="onAppChange">
-                    <option :value="0">All apps</option>
-                    <option v-for="app in apps" :key="app.id" :value="app.id">{{ app.name }}</option>
-                </select>
+                <VfSmartSelect
+                    v-model="filters.appId"
+                    :options="apps"
+                    :key-field="'id'"
+                    :value-field="'id'"
+                    :label-field="'name'"
+                    :search-fields="['name', 'repoUrl']"
+                    null-title="All apps"
+                    @update:model-value="onAppChange"
+                />
             </label>
 
             <label>
                 Environment
-                <select v-model.number="filters.environmentId" :disabled="!filters.appId" @change="load">
-                    <option :value="0">All environments</option>
-                    <option v-for="env in environments" :key="env.id" :value="env.id">{{ env.name }}</option>
-                </select>
+                <VfSmartSelect
+                    v-model="filters.environmentId"
+                    :options="environments"
+                    :key-field="'id'"
+                    :value-field="'id'"
+                    :label-field="'name'"
+                    null-title="All environments"
+                    :disabled="!filters.appId"
+                    @update:model-value="load"
+                />
             </label>
 
             <label>
                 Status
-                <select v-model="filters.status" @change="load">
-                    <option value="">Any status</option>
-                    <option v-for="status in ALL_STATUSES" :key="status" :value="status">{{ status }}</option>
-                </select>
+                <VfSmartSelect
+                    v-model="filters.status"
+                    :options="STATUS_OPTIONS"
+                    :key-field="'value'"
+                    :value-field="'value'"
+                    :label-field="'label'"
+                    null-title="Any status"
+                    @update:model-value="load"
+                />
             </label>
         </div>
 
@@ -35,7 +52,7 @@
 
 <script lang="ts" setup>
 import { dataFromAsync } from '@zyno-io/openapi-client-codegen';
-import { handleErrorAndAlert } from '@zyno-io/vue-foundation';
+import { handleErrorAndAlert, VfSmartSelect } from '@zyno-io/vue-foundation';
 import { onMounted, reactive, ref } from 'vue';
 
 import type { DeploymentStatus } from '@/shared/deployment-status';
@@ -45,14 +62,19 @@ import DeploymentTable from '@/shared/components/deployment-table.vue';
 import LoaderModal from '@/shared/components/loader-modal.vue';
 
 const ALL_STATUSES: DeploymentStatus[] = ['pending', 'validating', 'pushing', 'pushed', 'monitoring', 'deployed', 'failed'];
+const STATUS_OPTIONS = ALL_STATUSES.map(status => ({ value: status, label: status }));
 
 const apps = ref<IAppResponse[]>([]);
 const environments = ref<IEnvironmentResponse[]>([]);
 const deployments = ref<IDeploymentResponse[]>([]);
 const isLoading = ref(true);
 
-// 0 / '' mean "unset" — they're omitted from the query rather than sent as filters.
-const filters = reactive({ appId: 0, environmentId: 0, status: '' as DeploymentStatus | '' });
+// null means "unset" — these values are omitted from the query rather than sent as filters.
+const filters = reactive<{ appId: number | null; environmentId: number | null; status: DeploymentStatus | null }>({
+    appId: null,
+    environmentId: null,
+    status: null
+});
 
 async function load() {
     try {
@@ -74,7 +96,7 @@ async function load() {
 }
 
 async function onAppChange() {
-    filters.environmentId = 0;
+    filters.environmentId = null;
     environments.value = [];
 
     if (filters.appId) {

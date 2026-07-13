@@ -20,6 +20,26 @@ test('apps list page', async ({ page }) => {
     expectMinScreenshotSize(path, 10_000);
 });
 
+test('apps list search', async ({ page }) => {
+    await setupAuth(page);
+    await setupBaseMocks(page);
+    await mockAppsRoutes(page);
+
+    await page.goto('/apps');
+
+    const search = page.getByRole('searchbox', { name: 'Search apps' });
+    await search.fill('BILLING');
+    await expect(page.locator('.app')).toHaveCount(1);
+    await expect(page.locator('.app')).toContainText('billing-api');
+
+    await search.fill('example.com/acme/web');
+    await expect(page.locator('.app')).toHaveCount(1);
+    await expect(page.locator('.app')).toContainText('web-frontend');
+
+    await search.fill('missing-app');
+    await expect(page.getByRole('heading', { name: 'No matching apps' })).toBeVisible();
+});
+
 test('apps — add app modal', async ({ page }) => {
     await page.clock.install({ time: VRT_NOW });
     await setupAuth(page);

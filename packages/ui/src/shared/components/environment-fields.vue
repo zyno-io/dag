@@ -15,10 +15,16 @@
 
         <label>
             IaC repository
-            <select v-model.number="model.iacId" required>
-                <option :value="0" disabled>Select a repository...</option>
-                <option v-for="iac in iacs" :key="iac.id" :value="iac.id">{{ iac.name }}</option>
-            </select>
+            <VfSmartSelect
+                v-model="model.iacId"
+                :options="iacs"
+                :key-field="'id'"
+                :value-field="'id'"
+                :label-field="'name'"
+                :search-fields="['name', 'repoUrl']"
+                placeholder="Select a repository..."
+                required
+            />
             <span class="hint">Only repositories you can maintain in GitLab are listed. This is what decides who can manage this environment.</span>
         </label>
 
@@ -36,19 +42,29 @@
 
         <label>
             Cluster
-            <select v-model.number="model.clusterId" required>
-                <option :value="0" disabled>Select a cluster...</option>
-                <option v-for="cluster in clusters" :key="cluster.id" :value="cluster.id">{{ cluster.name }}</option>
-            </select>
+            <VfSmartSelect
+                v-model="model.clusterId"
+                :options="clusters"
+                :key-field="'id'"
+                :value-field="'id'"
+                :label-field="'name'"
+                :search-fields="['name', 'apiUrl']"
+                placeholder="Select a cluster..."
+                required
+            />
         </label>
 
         <div class="row">
             <label>
                 Helm type
-                <select v-model="model.helmType" required>
-                    <option value="flux">Flux (HelmRelease)</option>
-                    <option value="plain">Plain Helm</option>
-                </select>
+                <VfSmartSelect
+                    v-model="model.helmType"
+                    :options="HELM_TYPE_OPTIONS"
+                    :key-field="'value'"
+                    :value-field="'value'"
+                    :label-field="'label'"
+                    required
+                />
             </label>
 
             <label>
@@ -65,8 +81,15 @@
 </template>
 
 <script lang="ts" setup>
+import { VfSmartSelect } from '@zyno-io/vue-foundation';
+
 import type { IClusterResponse, IIacResponse } from '@/openapi-client-generated';
 import type { EnvironmentForm } from '@/shared/environment-form';
+
+const HELM_TYPE_OPTIONS: { value: EnvironmentForm['helmType']; label: string }[] = [
+    { value: 'flux', label: 'Flux (HelmRelease)' },
+    { value: 'plain', label: 'Plain Helm' }
+];
 
 defineProps<{
     iacs: IIacResponse[];

@@ -7,25 +7,36 @@
 
         <LoaderModal v-if="isLoading" />
 
-        <div v-else class="app-list">
-            <div v-if="!apps.length" class="empty">
-                <i class="fa fa-cubes" />
-                <h2>No apps yet</h2>
-                <p v-if="canCreate">Add an app to start deploying it from CI.</p>
-                <p v-else>You'll see apps whose source or IaC repositories you can access in GitLab.</p>
+        <template v-else>
+            <div v-if="apps.length" class="search-bar">
+                <i class="fa fa-magnifying-glass" />
+                <input v-model="search" type="search" aria-label="Search apps" placeholder="Search apps..." />
             </div>
 
-            <div v-for="app in apps" :key="app.id" class="app" @click="$router.push({ name: 'app', params: { appId: app.id } })">
-                <div class="app-main">
-                    <div class="app-name">{{ app.name }}</div>
-                    <div class="app-repo">{{ app.repoUrl }}</div>
+            <div class="app-list">
+                <div v-if="!apps.length" class="empty">
+                    <i class="fa fa-cubes" />
+                    <h2>No apps yet</h2>
+                    <p v-if="canCreate">Add an app to start deploying it from CI.</p>
+                    <p v-else>You'll see apps whose source or IaC repositories you can access in GitLab.</p>
                 </div>
-                <div class="app-meta">
-                    <span class="env-count">{{ app.environmentCount }} {{ app.environmentCount === 1 ? 'environment' : 'environments' }}</span>
-                    <span v-if="!app.canManage" class="read-only" title="Deployment configuration requires IaC maintainer access">read-only</span>
+                <div v-else-if="!visibleApps.length" class="empty">
+                    <i class="fa fa-magnifying-glass" />
+                    <h2>No matching apps</h2>
+                </div>
+
+                <div v-for="app in visibleApps" :key="app.id" class="app" @click="$router.push({ name: 'app', params: { appId: app.id } })">
+                    <div class="app-main">
+                        <div class="app-name">{{ app.name }}</div>
+                        <div class="app-repo">{{ app.repoUrl }}</div>
+                    </div>
+                    <div class="app-meta">
+                        <span class="env-count">{{ app.environmentCount }} {{ app.environmentCount === 1 ? 'environment' : 'environments' }}</span>
+                        <span v-if="!app.canManage" class="read-only" title="Deployment configuration requires IaC maintainer access">read-only</span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </template>
 
         <VfModal v-if="showCreate" @close="showCreate = false">
             <div class="create-form">
@@ -77,6 +88,14 @@ const clusters = ref<IClusterResponse[]>([]);
 const isLoading = ref(true);
 const showCreate = ref(false);
 const isSubmitting = ref(false);
+const search = ref('');
+
+const visibleApps = computed(() => {
+    const sorted = [...apps.value].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    const query = search.value.trim().toLocaleLowerCase();
+    if (!query) return sorted;
+    return sorted.filter(app => app.name.toLocaleLowerCase().includes(query) || app.repoUrl.toLocaleLowerCase().includes(query));
+});
 
 const form = reactive<{ name: string; repoUrl: string; environment: EnvironmentForm }>({
     name: '',
@@ -147,6 +166,22 @@ onMounted(load);
 
 .header {
     @apply flex items-center justify-between;
+}
+
+.search-bar {
+    @apply flex items-center gap-3 px-4 py-2.5 bg-neutral-500/10 border border-neutral-500/25 rounded-md text-neutral-400 focus-within:border-neutral-500/50 transition-colors;
+
+    i {
+        @apply text-sm;
+    }
+
+    input {
+        @apply flex-1 bg-transparent border-0 p-0 outline-none text-base text-neutral-900 placeholder:text-neutral-500;
+    }
+}
+
+html.dark .search-bar input {
+    @apply text-neutral-100;
 }
 
 .app-list {
