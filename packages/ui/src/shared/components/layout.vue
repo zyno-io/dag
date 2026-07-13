@@ -34,9 +34,11 @@
 </template>
 
 <script lang="ts" setup>
+import { dataFromAsync } from '@zyno-io/openapi-client-codegen';
 import { onMounted, onUnmounted, ref } from 'vue';
 
 import { LOCAL_STORAGE_AUTH_KEY } from '@/openapi-client';
+import { SessionApi } from '@/openapi-client-generated';
 import { useStore } from '@/store';
 
 const store = useStore();
@@ -66,10 +68,18 @@ function onSystemThemeChange(e: MediaQueryListEvent) {
     if (!localStorage.getItem(THEME_OVERRIDE_KEY)) applyTheme(e.matches);
 }
 
-function logout() {
-    store.sessionUser = null;
-    store.isOperator = false;
-    localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+async function logout() {
+    try {
+        // Invalidate cached source/IaC grants while the JWT is still available. If the server
+        // cannot be reached, local logout must still succeed.
+        await dataFromAsync(SessionApi.postSessionLogout());
+    } catch {
+        // Nothing actionable for the user: the local session is cleared below either way.
+    } finally {
+        store.sessionUser = null;
+        store.isOperator = false;
+        localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+    }
 }
 
 onMounted(() => mediaQuery.addEventListener('change', onSystemThemeChange));

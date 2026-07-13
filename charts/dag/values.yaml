@@ -35,9 +35,9 @@ config:
   # Optional extra comma-separated origins allowed as OAuth redirect targets.
   oauthRedirectOrigins: ''
 
-# GitLab is both how people sign in to the management UI and the authority on what they may
-# do: permissions come from each user's access to the IaC repository an environment deploys
-# into. Register an OAuth application with scope `api` and redirect URI <publicBaseUrl>/login.
+# GitLab is both how people sign in to the management UI and the authority on what they may do.
+# Source-repo access controls app visibility; IaC-repo access controls deployment configuration.
+# Register an OAuth application with scope `read_api` and redirect URI <publicBaseUrl>/login.
 gitlab:
   url: https://gitlab.com
   oauthClientId: ''

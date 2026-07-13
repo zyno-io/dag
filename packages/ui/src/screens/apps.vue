@@ -12,7 +12,7 @@
                 <i class="fa fa-cubes" />
                 <h2>No apps yet</h2>
                 <p v-if="canCreate">Add an app to start deploying it from CI.</p>
-                <p v-else>You'll see an app here once you have GitLab access to the IaC repository it deploys into.</p>
+                <p v-else>You'll see apps whose source or IaC repositories you can access in GitLab.</p>
             </div>
 
             <div v-for="app in apps" :key="app.id" class="app" @click="$router.push({ name: 'app', params: { appId: app.id } })">
@@ -22,7 +22,7 @@
                 </div>
                 <div class="app-meta">
                     <span class="env-count">{{ app.environmentCount }} {{ app.environmentCount === 1 ? 'environment' : 'environments' }}</span>
-                    <span v-if="!app.canManage" class="read-only" title="You have read-only access to this app's IaC repository">read-only</span>
+                    <span v-if="!app.canManage" class="read-only" title="Deployment configuration requires IaC maintainer access">read-only</span>
                 </div>
             </div>
         </div>
@@ -42,9 +42,7 @@
                         <input v-model="form.repoUrl" type="url" required placeholder="https://gitlab.example.com/org/my-service" />
                     </label>
 
-                    <p class="section-note">
-                        An app needs an environment before it can deploy — and it's the environment's IaC repository that decides who can see it.
-                    </p>
+                    <p class="section-note">An app needs an environment before it can deploy. Its IaC repository controls who may configure it.</p>
 
                     <EnvironmentFields v-model="form.environment" :iacs="manageableIacs" :clusters="clusters" />
 

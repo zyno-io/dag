@@ -22,7 +22,9 @@
                 {{ isRedirecting ? 'Redirecting...' : 'Sign in with GitLab' }}
             </button>
 
-            <p class="note">Access to apps and environments follows your GitLab permissions on the IaC repository they deploy into.</p>
+            <p class="note">
+                App visibility follows your source repository access. Deployment configuration remains controlled by IaC repository permissions.
+            </p>
         </div>
     </div>
 </template>

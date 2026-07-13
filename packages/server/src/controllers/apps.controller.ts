@@ -29,10 +29,7 @@ interface IAppCreateInput {
     name: string;
     gitProvider: 'gitlab' | 'github';
     repoUrl: string;
-    /**
-     * An app with no environment cannot deploy, and — since permissions derive from the IaC
-     * repo its environments point at — would be visible to nobody. So it gets one up front.
-     */
+    /** An app needs an initial environment so its IaC control boundary is established up front. */
     environment: IEnvironmentInput;
 }
 
@@ -63,7 +60,7 @@ export class AppsController {
         const results = await Promise.all(
             apps.map(async app => {
                 const appEnvironments = environments.filter(env => env.appId === app.id);
-                const roles = await this.appAccess.rolesForApp(user, appEnvironments, iacs);
+                const roles = await this.appAccess.rolesForApp(user, app, appEnvironments, iacs);
                 if (!roles.canRead) return null;
 
                 return {
@@ -71,7 +68,7 @@ export class AppsController {
                     name: app.name,
                     gitProvider: app.gitProvider,
                     repoUrl: app.repoUrl,
-                    environmentCount: appEnvironments.length,
+                    environmentCount: roles.visibleEnvironmentIds.size,
                     canManage: roles.canManage,
                     createdAt: app.createdAt,
                     updatedAt: app.updatedAt
@@ -84,21 +81,21 @@ export class AppsController {
 
     @http.GET(':id')
     async show(id: number, user: UserEntity): Promise<IAppDetailResponse> {
-        const { app, environments, iacs, roles } = await this.appAccess.loadApp(user, id);
+        const { app, visibleEnvironments, iacs, roles } = await this.appAccess.loadApp(user, id);
 
-        const clusters = await this.appAccess.clustersFor(environments);
-        const manageByEnv = await this.appAccess.perEnvironmentManage(user, environments, iacs);
+        const clusters = await this.appAccess.clustersFor(visibleEnvironments);
+        const manageByEnv = await this.appAccess.perEnvironmentManage(user, visibleEnvironments, iacs);
 
         return {
             id: app.id,
             name: app.name,
             gitProvider: app.gitProvider,
             repoUrl: app.repoUrl,
-            environmentCount: environments.length,
+            environmentCount: visibleEnvironments.length,
             canManage: roles.canManage,
             createdAt: app.createdAt,
             updatedAt: app.updatedAt,
-            environments: environments.map(env => toEnvironmentResponse(env, iacs, clusters, manageByEnv.get(env.id) ?? false))
+            environments: visibleEnvironments.map(env => toEnvironmentResponse(env, iacs, clusters, manageByEnv.get(env.id) ?? false))
         };
     }
 

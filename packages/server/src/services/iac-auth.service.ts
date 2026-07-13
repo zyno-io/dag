@@ -1,9 +1,9 @@
-import { HttpAccessDeniedError, ScopedLogger } from '@zyno-io/ts-server-foundation';
+import { HttpAccessDeniedError } from '@zyno-io/ts-server-foundation';
 
-import { AppConfig } from '../config';
 import { IacEntity } from '../entities/iac.entity';
 import { UserEntity } from '../entities/user.entity';
-import { gitlabProjectPath, GitLabService, ProjectAccessLevel } from './gitlab.service';
+import { GitLabProjectAuthService } from './gitlab-project-auth.service';
+import { ProjectAccessLevel } from './gitlab.service';
 
 export type IacRole = 'read' | 'operate' | 'manage';
 
@@ -22,14 +22,6 @@ const ROLE_REQUIREMENT: Record<IacRole, ProjectAccessLevel> = {
     manage: 'maintainer'
 };
 
-interface CacheEntry {
-    level: ProjectAccessLevel;
-    expiresAt: number;
-}
-
-const CACHE_TTL_MS = 5 * 60_000;
-const CACHE_MAX_ENTRIES = 1000;
-
 /**
  * DAG has no local roles. What a user may do is decided entirely by their GitLab access to
  * the IaC repo an environment deploys into: the people who can change the infrastructure
@@ -39,50 +31,10 @@ const CACHE_MAX_ENTRIES = 1000;
  * app-scoped request.
  */
 export class IacAuthService {
-    // Map iteration order is insertion order — re-inserting a key on hit moves it to the
-    // tail, so the head is the LRU entry; we evict from the head when we exceed the cap.
-    private cache = new Map<string, CacheEntry>();
-
-    constructor(
-        private gitlab: GitLabService,
-        private config: AppConfig,
-        private logger: ScopedLogger
-    ) {}
+    constructor(private projectAuth: GitLabProjectAuthService) {}
 
     async getAccessLevel(user: UserEntity, iac: IacEntity): Promise<ProjectAccessLevel> {
-        const cacheKey = `${user.id}|${iac.id}`;
-        const now = Date.now();
-
-        const cached = this.cache.get(cacheKey);
-        if (cached && cached.expiresAt > now) {
-            this.cache.delete(cacheKey);
-            this.cache.set(cacheKey, cached);
-            return cached.level;
-        }
-
-        const level = await this.resolveAccessLevel(user, iac);
-
-        // delete-then-set so the key always lands at the tail, even when refreshing an expired entry
-        this.cache.delete(cacheKey);
-        this.cache.set(cacheKey, { level, expiresAt: now + CACHE_TTL_MS });
-
-        if (this.cache.size > CACHE_MAX_ENTRIES) {
-            const oldest = this.cache.keys().next().value;
-            if (oldest !== undefined) this.cache.delete(oldest);
-        }
-
-        return level;
-    }
-
-    private async resolveAccessLevel(user: UserEntity, iac: IacEntity): Promise<ProjectAccessLevel> {
-        const projectPath = gitlabProjectPath(iac.repoUrl, this.config.GITLAB_URL);
-        if (!projectPath) {
-            // An IaC repo hosted somewhere other than the configured GitLab instance can never
-            // be authorized against it. Nobody gets access rather than everybody.
-            this.logger.warn(`IaC repo ${iac.id} (${iac.repoUrl}) is not on ${this.config.GITLAB_URL}; denying all access`);
-            return 'none';
-        }
-        return this.gitlab.getProjectAccessLevel(user, projectPath);
+        return this.projectAuth.getAccessLevel(user, iac.repoUrl);
     }
 
     async hasRole(user: UserEntity, iac: IacEntity, role: IacRole): Promise<boolean> {
@@ -115,12 +67,5 @@ export class IacAuthService {
             if (await this.hasRole(user, iac, 'manage')) return;
         }
         throw new HttpAccessDeniedError('Requires maintainer access to at least one IaC repository');
-    }
-
-    /** Drop cached grants for a user, e.g. once their GitLab session is replaced on re-login. */
-    invalidateUser(userId: string): void {
-        for (const key of this.cache.keys()) {
-            if (key.startsWith(`${userId}|`)) this.cache.delete(key);
-        }
     }
 }

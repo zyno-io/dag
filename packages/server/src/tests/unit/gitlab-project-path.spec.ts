@@ -4,9 +4,9 @@ import { describe, it } from 'node:test';
 import { gitlabProjectPath } from '../../services/gitlab.service';
 
 /**
- * This is what anchors the whole permission model: a user's rights come from their GitLab
- * access to an IaC repo, which we can only ask about if we can turn the repo's URL into a
- * project path. Returning null here means "deny everyone", so it must not be lenient.
+ * This is what anchors the whole permission model: source and IaC rights come from GitLab,
+ * which we can only ask about if we can turn a repo URL into a project path. Returning null
+ * here means "deny everyone", so it must not be lenient.
  */
 describe('gitlabProjectPath', () => {
     const gitlab = 'https://gitlab.example.com';

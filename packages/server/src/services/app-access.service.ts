@@ -5,24 +5,33 @@ import { AppEntity } from '../entities/app.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
 import { IacEntity } from '../entities/iac.entity';
 import { UserEntity } from '../entities/user.entity';
+import { GitLabProjectAuthService } from './gitlab-project-auth.service';
 import { IacAuthService, IacRole } from './iac-auth.service';
 
 export interface AppRoles {
-    /** The user can see this app: they can read at least one of its environments' IaC repos. */
+    /** The user can see this app through its source repo or at least one environment's IaC repo. */
     canRead: boolean;
     /**
      * The user can rename or delete this app. An app spanning two IaC repos affects both, so
      * this requires `manage` on every one of them, not just any.
      */
     canManage: boolean;
+    /** Source-repo readers may see every environment, including IaC repos they do not maintain. */
+    sourceCanRead: boolean;
+    /** Environment visibility after combining source-repo and per-IaC access. */
+    visibleEnvironmentIds: Set<number>;
 }
 
 /**
  * Answers "what may this user do with this app", which is never a property of the app itself
- * — it is a property of the IaC repos the app's environments deploy into.
+ * — visibility comes from the source repo, while control comes from the IaC repos its
+ * environments deploy into. IaC readers retain visibility for infrastructure operations.
  */
 export class AppAccessService {
-    constructor(private iacAuth: IacAuthService) {}
+    constructor(
+        private iacAuth: IacAuthService,
+        private projectAuth: GitLabProjectAuthService
+    ) {}
 
     /** Every IaC repo referenced by the given environments, by id. */
     async iacsFor(environments: AppEnvironmentEntity[]): Promise<Map<number, IacEntity>> {
@@ -35,23 +44,36 @@ export class AppAccessService {
         return new Map(iacs.map(iac => [iac.id, iac]));
     }
 
-    async rolesForApp(user: UserEntity, environments: AppEnvironmentEntity[], iacs: Map<number, IacEntity>): Promise<AppRoles> {
-        if (!environments.length) return { canRead: false, canManage: false };
+    async rolesForApp(user: UserEntity, app: AppEntity, environments: AppEnvironmentEntity[], iacs: Map<number, IacEntity>): Promise<AppRoles> {
+        // Reporter is the first standard GitLab role that can read a private repository.
+        // Public visibility alone does not count: getProjectAccessLevel returns `none` without
+        // an explicit project/group grant.
+        const sourceAccess = app.gitProvider === 'gitlab' ? this.projectAuth.hasAccess(user, app.repoUrl, 'reporter') : Promise.resolve(false);
 
-        const checks = await Promise.all(
-            environments.map(async env => {
-                const iac = iacs.get(env.iacId);
-                if (!iac) return { read: false, manage: false };
-                return {
-                    read: await this.iacAuth.hasRole(user, iac, 'read'),
-                    manage: await this.iacAuth.hasRole(user, iac, 'manage')
-                };
+        const accessByIacId = new Map<number, { read: boolean; manage: boolean }>();
+        const iacAccess = Promise.all(
+            [...new Set(environments.map(env => env.iacId))].map(async iacId => {
+                const iac = iacs.get(iacId);
+                accessByIacId.set(
+                    iacId,
+                    iac
+                        ? {
+                              read: await this.iacAuth.hasRole(user, iac, 'read'),
+                              manage: await this.iacAuth.hasRole(user, iac, 'manage')
+                          }
+                        : { read: false, manage: false }
+                );
             })
         );
+        const [sourceCanRead] = await Promise.all([sourceAccess, iacAccess]);
+
+        const visibleEnvironmentIds = new Set(environments.filter(env => sourceCanRead || accessByIacId.get(env.iacId)?.read).map(env => env.id));
 
         return {
-            canRead: checks.some(c => c.read),
-            canManage: checks.every(c => c.manage)
+            canRead: sourceCanRead || visibleEnvironmentIds.size > 0,
+            canManage: environments.length > 0 && [...accessByIacId.values()].every(access => access.manage),
+            sourceCanRead,
+            visibleEnvironmentIds
         };
     }
 
@@ -62,12 +84,13 @@ export class AppAccessService {
 
         const environments = await AppEnvironmentEntity.query().filter({ appId }).orderBy('name').find();
         const iacs = await this.iacsFor(environments);
-        const roles = await this.rolesForApp(user, environments, iacs);
+        const roles = await this.rolesForApp(user, app, environments, iacs);
 
         // Don't distinguish "does not exist" from "not yours" — that would leak which repos exist.
         if (!roles.canRead) throw new HttpNotFoundError(`App ${appId} not found`);
 
-        return { app, environments, iacs, roles };
+        const visibleEnvironments = environments.filter(environment => roles.visibleEnvironmentIds.has(environment.id));
+        return { app, environments, visibleEnvironments, iacs, roles };
     }
 
     requireManage(roles: AppRoles, what: string): void {

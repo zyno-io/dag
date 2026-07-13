@@ -11,7 +11,6 @@ import { IacEntity } from '../entities/iac.entity';
 import { UserEntity } from '../entities/user.entity';
 import { AppAccessService } from '../services/app-access.service';
 import { buildCommitUrl, buildJobUrl } from '../services/deployment.service';
-import { IacAuthService } from '../services/iac-auth.service';
 
 interface IDeploymentResponse {
     id: string;
@@ -51,15 +50,13 @@ const MAX_LIMIT = 200;
 @ApiController('/api/deployments')
 @http.middleware(UserAuthMiddleware)
 export class DeploymentsController {
-    constructor(
-        private appAccess: AppAccessService,
-        private iacAuth: IacAuthService
-    ) {}
+    constructor(private appAccess: AppAccessService) {}
 
     @http.GET()
     async index(query: HttpQueries<IDeploymentListQuery>, user: UserEntity): Promise<IDeploymentResponse[]> {
         // Resolve which environments the user can see first, then constrain the deployment
-        // query to those — so a deployment can never be listed for an IaC repo they can't read.
+        // query to those. Source-repo readers see all of their app's environments; IaC-only
+        // readers see only environments backed by repositories they can read.
         const visibleEnvironments = await this.visibleEnvironments(user, query.appId, query.environmentId);
         if (!visibleEnvironments.length) return [];
 
@@ -84,10 +81,14 @@ export class DeploymentsController {
         const environment = await AppEnvironmentEntity.query().filter({ id: deployment.appEnvironmentId }).findOneOrUndefined();
         if (!environment) throw new HttpNotFoundError(`Deployment ${id} not found`);
 
+        const app = await AppEntity.query().filter({ id: environment.appId }).findOneOrUndefined();
+        if (!app) throw new HttpNotFoundError(`Deployment ${id} not found`);
+
+        const iacs = await this.appAccess.iacsFor([environment]);
+        const roles = await this.appAccess.rolesForApp(user, app, [environment], iacs);
         // 404 rather than 403 when unreadable, so this can't be used to probe whether a given
         // deployment id exists — matching how apps hide themselves.
-        const iac = await this.appAccess.iacFor(environment);
-        if (!(await this.iacAuth.hasRole(user, iac, 'read'))) {
+        if (!roles.visibleEnvironmentIds.has(environment.id)) {
             throw new HttpNotFoundError(`Deployment ${id} not found`);
         }
 
@@ -101,16 +102,24 @@ export class DeploymentsController {
         if (environmentId) query = query.filter({ id: environmentId });
 
         const environments = await query.find();
-        const iacs = await this.appAccess.iacsFor(environments);
+        if (!environments.length) return [];
 
-        const readable = await Promise.all(
-            environments.map(async env => {
-                const iac = iacs.get(env.iacId);
-                return iac ? this.iacAuth.hasRole(user, iac, 'read') : false;
+        const iacs = await this.appAccess.iacsFor(environments);
+        const appIds = [...new Set(environments.map(environment => environment.appId))];
+        const apps = await AppEntity.query()
+            .filter({ id: { $in: appIds } })
+            .find();
+
+        const visibleIds = new Set<number>();
+        await Promise.all(
+            apps.map(async app => {
+                const appEnvironments = environments.filter(environment => environment.appId === app.id);
+                const roles = await this.appAccess.rolesForApp(user, app, appEnvironments, iacs);
+                for (const id of roles.visibleEnvironmentIds) visibleIds.add(id);
             })
         );
 
-        return environments.filter((_, i) => readable[i]);
+        return environments.filter(environment => visibleIds.has(environment.id));
     }
 
     private async enrich(deployments: DeploymentEntity[], environments: AppEnvironmentEntity[]): Promise<IDeploymentResponse[]> {

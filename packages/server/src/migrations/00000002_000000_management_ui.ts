@@ -2,7 +2,7 @@ import { createMigration } from '@zyno-io/ts-server-foundation';
 
 export default createMigration(async db => {
     // Table: users — created on first GitLab OAuth login. There are no local roles;
-    // every permission is resolved live from the user's GitLab access to an IaC repo.
+    // app visibility and IaC control are resolved live from the user's GitLab access.
     await db.rawExecute(`
         CREATE TABLE "users" (
             "id" CHAR(36) NOT NULL,

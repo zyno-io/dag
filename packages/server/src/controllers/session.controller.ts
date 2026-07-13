@@ -17,8 +17,8 @@ import { ApiController } from '../accessories/controller.accessory';
 import { AppConfig } from '../config';
 import { Db } from '../database';
 import { UserEntity } from '../entities/user.entity';
+import { GitLabProjectAuthService } from '../services/gitlab-project-auth.service';
 import { GitLabService } from '../services/gitlab.service';
-import { IacAuthService } from '../services/iac-auth.service';
 
 interface ISessionResponse {
     id: string;
@@ -55,7 +55,7 @@ export class SessionController {
     constructor(
         private db: Db,
         private gitlab: GitLabService,
-        private iacAuth: IacAuthService,
+        private projectAuth: GitLabProjectAuthService,
         private config: AppConfig
     ) {}
 
@@ -139,10 +139,24 @@ export class SessionController {
         });
 
         // Grants were cached against the old GitLab token; re-login should re-resolve them.
-        this.iacAuth.invalidateUser(user.id);
+        this.projectAuth.invalidateUser(user.id);
 
         const jwt = await JWT.generate({ subject: user.id });
         return { jwt, returnPath: state.returnPath };
+    }
+
+    /** Logging out is also an explicit request to refresh GitLab-derived grants next time. */
+    @http.POST('logout')
+    async logout(user: UserEntity): Promise<{ loggedOut: true }> {
+        if (user.gitlabSession) {
+            user.gitlabSession = {
+                ...user.gitlabSession,
+                authorizationVersion: Math.max(Date.now(), (user.gitlabSession.authorizationVersion ?? 0) + 1)
+            };
+            await persistEntity(user);
+        }
+        this.projectAuth.invalidateUser(user.id);
+        return { loggedOut: true };
     }
 
     private async verifyOAuthState(stateToken: string, request: HttpRequest): Promise<IOAuthStatePayload> {

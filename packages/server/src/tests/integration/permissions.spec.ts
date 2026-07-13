@@ -6,6 +6,7 @@ import { CoreAppOptions } from '../../app';
 import { AppEnvironmentEntity } from '../../entities/app-environment.entity';
 import { AppEntity } from '../../entities/app.entity';
 import { ClusterEntity } from '../../entities/cluster.entity';
+import { DeploymentEntity } from '../../entities/deployment.entity';
 import { IacEntity } from '../../entities/iac.entity';
 import { UserEntity } from '../../entities/user.entity';
 import { decryptValue } from '../../helpers/crypto';
@@ -22,7 +23,7 @@ process.env.CRYPTO_SECRET ??= 'test-crypto-secret-change-me-32c';
 
 /**
  * Access levels are keyed by GitLab user id rather than set globally, so each test can act as
- * several users at once without fighting IacAuthService's cache.
+ * several users at once without fighting the shared GitLab project-access cache.
  */
 const ACCESS_BY_GITLAB_USER = new Map<string, ProjectAccessLevel>([
     ['gl-none', 'none'],
@@ -34,7 +35,9 @@ const ACCESS_BY_GITLAB_USER = new Map<string, ProjectAccessLevel>([
 // e.g. the grafter is only a reporter on the app's repo but a maintainer on their own.
 const ACCESS_BY_USER_AND_PATH = new Map<string, ProjectAccessLevel>([
     ['gl-grafter|org/iac-repo', 'reporter'],
-    ['gl-grafter|attacker/iac-repo', 'maintainer']
+    ['gl-grafter|attacker/iac-repo', 'maintainer'],
+    ['gl-app-owner|org/my-app', 'reporter'],
+    ['gl-partial-iac|org/iac-repo', 'reporter']
 ]);
 
 /** Stands in for the real GitLab API — the only place the permission model reaches the network. */
@@ -124,14 +127,23 @@ async function seed() {
     await environment.save();
     environmentId = environment.id;
 
-    for (const gitlabUserId of [...ACCESS_BY_GITLAB_USER.keys(), 'gl-grafter']) {
+    for (const gitlabUserId of [...ACCESS_BY_GITLAB_USER.keys(), 'gl-grafter', 'gl-app-owner', 'gl-partial-iac']) {
         const user = createEntity(UserEntity, {
             id: uuid(),
             gitlabUserId,
             username: gitlabUserId,
             name: gitlabUserId,
             avatarUrl: null,
-            gitlabSession: null,
+            gitlabSession:
+                gitlabUserId === 'gl-app-owner'
+                    ? {
+                          accessToken: 'test-access-token',
+                          refreshToken: 'test-refresh-token',
+                          expiresAt: Date.now() + 3_600_000,
+                          authorizationVersion: 1,
+                          redirectUri: 'https://dag.local/login'
+                      }
+                    : null,
             lastLoginAt: new Date()
         });
         await user.save();
@@ -158,7 +170,7 @@ function environmentBody(overrides: Record<string, unknown> = {}) {
     };
 }
 
-describe('IaC-derived permissions', () => {
+describe('GitLab-derived permissions', () => {
     it('rejects unauthenticated requests', async () => {
         const response = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', {});
         assert.equal(response.statusCode, 401);
@@ -188,6 +200,85 @@ describe('IaC-derived permissions', () => {
         assert.equal(apps.length, 1);
         assert.equal(apps[0].id, appId);
         assert.equal(apps[0].canManage, false);
+    });
+
+    it('shows apps and deployments to source-repo owners without IaC access', async () => {
+        const deployment = createEntity(DeploymentEntity, {
+            id: uuid(),
+            appEnvironmentId: environmentId,
+            ciJobId: '12345',
+            version: '1.2.3',
+            commitSha: null,
+            sourceCommitSha: 'abc123',
+            statusMessage: null
+        });
+        await deployment.save();
+
+        const appsResponse = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', auth('gl-app-owner'));
+        assert.equal(appsResponse.statusCode, 200);
+        const apps = JSON.parse(appsResponse.bodyString);
+        assert.equal(apps.length, 1);
+        assert.equal(apps[0].id, appId);
+        assert.equal(apps[0].environmentCount, 1);
+        assert.equal(apps[0].canManage, false);
+
+        const deploymentsResponse = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/deployments', auth('gl-app-owner'));
+        assert.equal(deploymentsResponse.statusCode, 200);
+        const deployments = JSON.parse(deploymentsResponse.bodyString);
+        assert.equal(deployments.length, 1);
+        assert.equal(deployments[0].id, deployment.id);
+    });
+
+    it('shows IaC-only readers only the environments backed by repos they can read', async () => {
+        const hiddenEnvironment = createEntity(AppEnvironmentEntity, {
+            appId,
+            branch: 'hidden',
+            name: 'hidden',
+            iacId: attackerIacId,
+            iacPath: 'charts/my-app-hidden',
+            clusterId,
+            helmType: 'flux',
+            helmNamespace: 'default',
+            helmName: 'my-app-hidden',
+            iacBranch: null
+        });
+        await hiddenEnvironment.save();
+
+        const response = await TestingHelpers.makeMockRequest(tf, 'GET', `/api/apps/${appId}`, auth('gl-partial-iac'));
+        assert.equal(response.statusCode, 200);
+
+        const app = JSON.parse(response.bodyString);
+        assert.equal(app.environmentCount, 1);
+        assert.deepEqual(
+            app.environments.map((environment: { id: number }) => environment.id),
+            [environmentId]
+        );
+    });
+
+    it('invalidates source and IaC permission caches on logout', async () => {
+        const cacheKey = 'gl-app-owner|org/my-app';
+        const userBefore = await UserEntity.query().filter({ gitlabUserId: 'gl-app-owner' }).findOne();
+        const versionBefore = userBefore.gitlabSession!.authorizationVersion ?? 0;
+        const initial = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', auth('gl-app-owner'));
+        assert.equal(JSON.parse(initial.bodyString).length, 1);
+
+        ACCESS_BY_USER_AND_PATH.set(cacheKey, 'none');
+        try {
+            // The old grant remains until logout explicitly invalidates it.
+            const cached = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', auth('gl-app-owner'));
+            assert.equal(JSON.parse(cached.bodyString).length, 1);
+
+            const logout = await TestingHelpers.makeMockRequest(tf, 'POST', '/api/session/logout', auth('gl-app-owner'), {});
+            assert.equal(logout.statusCode, 200);
+            const userAfter = await UserEntity.query().filter({ gitlabUserId: 'gl-app-owner' }).findOne();
+            assert.ok((userAfter.gitlabSession!.authorizationVersion ?? 0) > versionBefore);
+
+            const refreshed = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', auth('gl-app-owner'));
+            assert.deepEqual(JSON.parse(refreshed.bodyString), []);
+        } finally {
+            ACCESS_BY_USER_AND_PATH.set(cacheKey, 'reporter');
+            await TestingHelpers.makeMockRequest(tf, 'POST', '/api/session/logout', auth('gl-app-owner'), {});
+        }
     });
 
     it('shows the app to a maintainer as manageable', async () => {
@@ -323,6 +414,7 @@ describe('IaC-derived permissions', () => {
         assert.ok(session.refreshToken.startsWith('enc:'), 'refresh token stored unencrypted');
         assert.ok(!session.accessToken.includes('raw-access'));
         assert.ok(!session.refreshToken.includes('raw-refresh'));
+        assert.ok((session.authorizationVersion ?? 0) > 0, 'login sessions must invalidate older permission caches');
 
         // ...but is recoverable at point of use.
         assert.equal(decryptValue(session.accessToken), 'raw-access');

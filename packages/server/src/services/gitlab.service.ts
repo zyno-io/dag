@@ -72,7 +72,7 @@ export class GitLabService {
             redirect_uri: redirectUri,
             state,
             response_type: 'code',
-            scope: 'api'
+            scope: 'read_api'
         });
         return `${this.baseUrl}/oauth/authorize?${params}`;
     }
@@ -163,7 +163,7 @@ export class GitLabService {
 
     /**
      * Package fresh OAuth tokens into a session for persistence, with the access and refresh
-     * tokens encrypted at rest — they are `api`-scoped, so a leaked database row would otherwise
+     * tokens encrypted at rest — they are `read_api`-scoped, so a leaked database row would otherwise
      * let anyone impersonate the user against GitLab.
      */
     buildSession(tokens: GitLabTokens, redirectUri: string): IGitLabSession {
@@ -171,6 +171,7 @@ export class GitLabService {
             accessToken: encryptValue(tokens.accessToken),
             refreshToken: encryptValue(tokens.refreshToken),
             expiresAt: tokens.expiresAt,
+            authorizationVersion: Date.now(),
             redirectUri
         };
     }

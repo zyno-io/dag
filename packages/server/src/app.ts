@@ -17,6 +17,7 @@ import { ChartService } from './services/chart.service';
 import { DeploymentLifecycleListener } from './services/deployment-lifecycle.listener';
 import { DeploymentService } from './services/deployment.service';
 import { GitProviderService } from './services/git-provider.service';
+import { GitLabProjectAuthService } from './services/gitlab-project-auth.service';
 import { GitLabService } from './services/gitlab.service';
 import { IacAuthService } from './services/iac-auth.service';
 import { IacRepoService } from './services/iac-repo.service';
@@ -48,6 +49,7 @@ export const CoreAppOptions: CreateAppOptions<AppConfig> = {
         AppAuthService,
         ChartService,
         DeploymentService,
+        GitLabProjectAuthService,
         GitLabService,
         GitProviderService,
         IacAuthService,

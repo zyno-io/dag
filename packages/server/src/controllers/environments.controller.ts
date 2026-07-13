@@ -77,10 +77,10 @@ export class EnvironmentsController {
 
     @http.GET()
     async index(appId: number, user: UserEntity): Promise<IEnvironmentResponse[]> {
-        const { environments, iacs } = await this.appAccess.loadApp(user, appId);
-        const clusters = await this.appAccess.clustersFor(environments);
-        const manageByEnv = await this.appAccess.perEnvironmentManage(user, environments, iacs);
-        return environments.map(env => toEnvironmentResponse(env, iacs, clusters, manageByEnv.get(env.id) ?? false));
+        const { visibleEnvironments, iacs } = await this.appAccess.loadApp(user, appId);
+        const clusters = await this.appAccess.clustersFor(visibleEnvironments);
+        const manageByEnv = await this.appAccess.perEnvironmentManage(user, visibleEnvironments, iacs);
+        return visibleEnvironments.map(env => toEnvironmentResponse(env, iacs, clusters, manageByEnv.get(env.id) ?? false));
     }
 
     @http.POST()

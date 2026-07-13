@@ -5,6 +5,8 @@ export interface IGitLabSession {
     refreshToken: string;
     /** Epoch millis at which accessToken expires. */
     expiresAt: number;
+    /** Changes whenever every GitLab-derived permission cache should be refreshed. */
+    authorizationVersion?: number;
     /** Required by GitLab when exchanging a refresh token. */
     redirectUri: string;
 }
