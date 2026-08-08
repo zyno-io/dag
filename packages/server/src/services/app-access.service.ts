@@ -1,4 +1,4 @@
-import { HttpAccessDeniedError, HttpNotFoundError } from '@zyno-io/ts-server-foundation';
+import { HttpAccessDeniedError, HttpBadRequestError, HttpNotFoundError } from '@zyno-io/ts-server-foundation';
 
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { AppEntity } from '../entities/app.entity';
@@ -168,6 +168,28 @@ export class AppAccessService {
             helmNamespace: trimmedOrNull(input.helmNamespace),
             helmName: trimmedOrNull(input.helmName)
         };
+    }
+
+    /**
+     * Environment destinations are global resources, not app-scoped ones. Without these checks,
+     * two apps can overwrite the same chart directory or monitor the same Helm release.
+     */
+    async assertEnvironmentTargetsAreFree(input: EnvironmentInput, excludeId: number | null): Promise<void> {
+        const sameIacPath = await AppEnvironmentEntity.query().filter({ iacId: input.iacId, iacPath: input.iacPath }).findOneOrUndefined();
+        if (sameIacPath && sameIacPath.id !== excludeId) {
+            throw new HttpBadRequestError('Another environment already targets this IaC repository and chart path');
+        }
+
+        const namespace = input.helmNamespace ?? 'default';
+        const releaseName = input.helmName ?? input.iacPath.split('/').pop()!;
+        const sameHelmTarget = (await AppEnvironmentEntity.query().filter({ clusterId: input.clusterId, helmType: input.helmType }).find()).find(
+            environment =>
+                (environment.helmNamespace ?? 'default') === namespace &&
+                (environment.helmName ?? environment.iacPath.split('/').pop()!) === releaseName
+        );
+        if (sameHelmTarget && sameHelmTarget.id !== excludeId) {
+            throw new HttpBadRequestError('Another environment already targets this cluster, Helm type, namespace, and release name');
+        }
     }
 }
 

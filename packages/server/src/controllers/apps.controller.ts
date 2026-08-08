@@ -1,4 +1,4 @@
-import { createPersistedEntity, http, HttpBody, persistEntity } from '@zyno-io/ts-server-foundation';
+import { createPersistedEntity, http, HttpBadRequestError, HttpBody, persistEntity } from '@zyno-io/ts-server-foundation';
 
 import { UserAuthMiddleware } from '../accessories/auth-middleware.accessory';
 import { ApiController } from '../accessories/controller.accessory';
@@ -106,6 +106,9 @@ export class AppsController {
         await this.appAccess.assertClusterExists(body.environment.clusterId);
 
         const repoUrl = normalizeRepoUrl(body.repoUrl);
+        const environment = this.appAccess.normalizeEnvironmentInput(body.environment);
+        await this.assertRepoUrlIsFree(repoUrl, null);
+        await this.appAccess.assertEnvironmentTargetsAreFree(environment, null);
 
         const appId = await this.db.transaction(async session => {
             const app = await createPersistedEntity(
@@ -124,7 +127,7 @@ export class AppsController {
                 AppEnvironmentEntity,
                 {
                     appId: app.id,
-                    ...this.appAccess.normalizeEnvironmentInput(body.environment),
+                    ...environment,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 },
@@ -142,9 +145,12 @@ export class AppsController {
         const { app, roles } = await this.appAccess.loadApp(user, id);
         this.appAccess.requireManage(roles, 'app');
 
+        const repoUrl = normalizeRepoUrl(body.repoUrl);
+        await this.assertRepoUrlIsFree(repoUrl, id);
+
         app.name = body.name.trim();
         app.gitProvider = body.gitProvider;
-        app.repoUrl = normalizeRepoUrl(body.repoUrl);
+        app.repoUrl = repoUrl;
         app.updatedAt = new Date();
         await persistEntity(app);
 
@@ -173,5 +179,13 @@ export class AppsController {
         });
 
         return { deleted: true };
+    }
+
+    /** Mirrors the unique repository index with a useful 400 response. */
+    private async assertRepoUrlIsFree(repoUrl: string, excludeId: number | null): Promise<void> {
+        const existing = await AppEntity.query().filter({ repoUrl }).findOneOrUndefined();
+        if (existing && existing.id !== excludeId) {
+            throw new HttpBadRequestError(`An app already uses repository "${repoUrl}"`);
+        }
     }
 }

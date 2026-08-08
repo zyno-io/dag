@@ -98,6 +98,7 @@ export class EnvironmentsController {
 
         const input = this.appAccess.normalizeEnvironmentInput(body);
         await this.assertNameIsFree(appId, input.branch, input.name, null);
+        await this.appAccess.assertEnvironmentTargetsAreFree(input, null);
 
         const environment = await createPersistedEntity(AppEnvironmentEntity, {
             appId,
@@ -124,6 +125,7 @@ export class EnvironmentsController {
 
         const input = this.appAccess.normalizeEnvironmentInput(body);
         await this.assertNameIsFree(appId, input.branch, input.name, id);
+        await this.appAccess.assertEnvironmentTargetsAreFree(input, id);
 
         Object.assign(environment, input);
         environment.updatedAt = new Date();

@@ -318,6 +318,83 @@ describe('GitLab-derived permissions', () => {
         assert.equal(environment.clusterName, 'prod-1');
     });
 
+    it('refuses to reuse an IaC repository chart path', async () => {
+        const response = await TestingHelpers.makeMockRequest(
+            tf,
+            'POST',
+            `/api/apps/${appId}/environments`,
+            auth('gl-maintainer'),
+            environmentBody({ name: 'same-path', branch: 'same-path', iacPath: 'charts/my-app', helmName: 'another-release' })
+        );
+
+        assert.equal(response.statusCode, 400);
+        assert.match(JSON.parse(response.bodyString).message, /IaC repository and chart path/);
+    });
+
+    it('refuses to reuse an effective Helm target', async () => {
+        const response = await TestingHelpers.makeMockRequest(
+            tf,
+            'POST',
+            `/api/apps/${appId}/environments`,
+            auth('gl-maintainer'),
+            // A separate chart path and IaC repo still resolve to the seeded environment's
+            // default namespace and release name.
+            environmentBody({
+                name: 'same-release',
+                branch: 'same-release',
+                iacId: attackerIacId,
+                iacPath: 'other/my-app',
+                helmNamespace: null,
+                helmName: null
+            })
+        );
+
+        assert.equal(response.statusCode, 400);
+        assert.match(JSON.parse(response.bodyString).message, /cluster, Helm type, namespace, and release name/);
+    });
+
+    it('refuses a new app whose repository or initial environment target is already in use', async () => {
+        const duplicateRepo = await TestingHelpers.makeMockRequest(tf, 'POST', '/api/apps', auth('gl-maintainer'), {
+            name: 'copy of my app',
+            gitProvider: 'gitlab',
+            // The trailing slash must not bypass the repository-URL uniqueness rule.
+            repoUrl: 'https://gitlab.example.com/org/my-app/',
+            environment: environmentBody({ iacPath: 'charts/a-new-path', helmName: 'a-new-release' })
+        });
+        assert.equal(duplicateRepo.statusCode, 400);
+        assert.match(JSON.parse(duplicateRepo.bodyString).message, /already uses repository/);
+
+        const duplicateTarget = await TestingHelpers.makeMockRequest(tf, 'POST', '/api/apps', auth('gl-maintainer'), {
+            name: 'another app',
+            gitProvider: 'gitlab',
+            repoUrl: 'https://gitlab.example.com/org/another-app',
+            environment: environmentBody({ iacPath: 'charts/my-app', helmName: 'another-release' })
+        });
+        assert.equal(duplicateTarget.statusCode, 400);
+        assert.match(JSON.parse(duplicateTarget.bodyString).message, /IaC repository and chart path/);
+    });
+
+    it('refuses an environment update that collides with another target', async () => {
+        const created = await TestingHelpers.makeMockRequest(
+            tf,
+            'POST',
+            `/api/apps/${appId}/environments`,
+            auth('gl-maintainer'),
+            environmentBody({ name: 'staging-ok', branch: 'staging-ok' })
+        );
+        assert.equal(created.statusCode, 200);
+
+        const response = await TestingHelpers.makeMockRequest(
+            tf,
+            'PUT',
+            `/api/apps/${appId}/environments/${environmentId}`,
+            auth('gl-maintainer'),
+            environmentBody({ name: 'main', branch: 'main' })
+        );
+        assert.equal(response.statusCode, 400);
+        assert.match(JSON.parse(response.bodyString).message, /IaC repository and chart path/);
+    });
+
     it('refuses to let a reader graft an environment onto an app they only read', async () => {
         // gl-grafter is a reporter on the app's IaC repo but a maintainer on their own. Managing
         // the target repo must not be enough to add an environment to an app they don't manage —

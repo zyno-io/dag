@@ -53,7 +53,7 @@ export async function forceLightTheme(page: Page): Promise<void> {
 /** Everything app.vue and the layout fire on load — run on every authenticated test. */
 export async function setupBaseMocks(page: Page): Promise<void> {
     await json(page, '**/api/session/me', sessionUser);
-    // Drives store.isOperator (a 'manage' role reveals the infrastructure menu).
+    // Preloads shared manageable IaCs and drives store.isOperator.
     await json(page, '**/api/iacs', iacs);
 }
 

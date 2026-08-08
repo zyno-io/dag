@@ -36,7 +36,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { LOCAL_STORAGE_AUTH_KEY } from '@/openapi-client';
-import { IacsApi, SessionApi } from '@/openapi-client-generated';
+import { SessionApi } from '@/openapi-client-generated';
 import { useStore } from '@/store';
 
 const route = useRoute();
@@ -73,8 +73,7 @@ async function completeLogin(code: string, state: string) {
         localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, jwt);
         store.sessionUser = await dataFromAsync(SessionApi.getSessionGetIdentity());
 
-        const iacs = await dataFromAsync(IacsApi.getIacsIndex());
-        store.isOperator = iacs.some(iac => iac.role === 'manage');
+        await store.loadManageableIacs();
 
         await router.replace(returnPath || '/apps');
     } catch (err) {

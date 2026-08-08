@@ -77,7 +77,7 @@ async function logout() {
         // Nothing actionable for the user: the local session is cleared below either way.
     } finally {
         store.sessionUser = null;
-        store.isOperator = false;
+        store.clearManageableIacs();
         localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
     }
 }

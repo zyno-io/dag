@@ -107,6 +107,7 @@
 <script lang="ts" setup>
 import { dataFromAsync } from '@zyno-io/openapi-client-codegen';
 import { handleErrorAndAlert, showConfirmDestroy, VfModal } from '@zyno-io/vue-foundation';
+import { storeToRefs } from 'pinia';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -115,26 +116,26 @@ import {
     ClustersApi,
     DeploymentsApi,
     EnvironmentsApi,
-    IacsApi,
     type IAppDetailResponse,
     type IClusterResponse,
     type IDeploymentResponse,
-    type IEnvironmentResponse,
-    type IIacResponse
+    type IEnvironmentResponse
 } from '@/openapi-client-generated';
 import DeploymentTable from '@/shared/components/deployment-table.vue';
 import EnvironmentFields from '@/shared/components/environment-fields.vue';
 import LoaderModal from '@/shared/components/loader-modal.vue';
 import { blankEnvironment, toEnvironmentForm, type EnvironmentForm } from '@/shared/environment-form';
+import { useStore } from '@/store';
 
 const route = useRoute();
 const router = useRouter();
+const store = useStore();
+const { manageableIacs } = storeToRefs(store);
 
 const appId = Number(route.params.appId);
 
 const app = ref<IAppDetailResponse>();
 const deployments = ref<IDeploymentResponse[]>([]);
-const iacs = ref<IIacResponse[]>([]);
 const clusters = ref<IClusterResponse[]>([]);
 
 const isLoading = ref(true);
@@ -147,9 +148,8 @@ const showEnvironmentForm = ref(false);
 const editingEnvironmentId = ref<number | null>(null);
 const environmentForm = ref<EnvironmentForm>(blankEnvironment());
 
-const manageableIacs = computed(() => iacs.value.filter(iac => iac.role === 'manage'));
 // Adding an environment needs manage on the app itself (the server enforces requireManage), not
-// merely manage on some unrelated repo — otherwise the button would always 403.
+// merely manage on some unrelated repo. The manageable IaC list is loaded globally at sign-in.
 const canAddEnvironment = computed(() => !!app.value?.canManage && manageableIacs.value.length > 0);
 
 async function load() {
@@ -166,7 +166,6 @@ async function load() {
 /** Only needed to populate the environment form's pickers. */
 async function loadFormOptions() {
     try {
-        iacs.value = await dataFromAsync(IacsApi.getIacsIndex());
         clusters.value = await dataFromAsync(ClustersApi.getClustersIndex());
     } catch (err) {
         handleErrorAndAlert(err);

@@ -13,6 +13,7 @@ test('app detail page', async ({ page }) => {
 
     await expect(page.getByRole('heading', { name: 'checkout-service' })).toBeVisible();
     await expect(page.locator('.environment')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Add environment' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Recent deployments' })).toBeVisible();
     await page.waitForTimeout(300);
 

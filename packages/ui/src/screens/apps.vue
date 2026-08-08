@@ -72,18 +72,21 @@
 <script lang="ts" setup>
 import { dataFromAsync } from '@zyno-io/openapi-client-codegen';
 import { handleErrorAndAlert, VfModal } from '@zyno-io/vue-foundation';
+import { storeToRefs } from 'pinia';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { AppsApi, ClustersApi, IacsApi, type IAppResponse, type IClusterResponse, type IIacResponse } from '@/openapi-client-generated';
+import { AppsApi, ClustersApi, type IAppResponse, type IClusterResponse } from '@/openapi-client-generated';
 import EnvironmentFields from '@/shared/components/environment-fields.vue';
 import LoaderModal from '@/shared/components/loader-modal.vue';
 import { blankEnvironment, type EnvironmentForm } from '@/shared/environment-form';
+import { useStore } from '@/store';
 
 const router = useRouter();
+const store = useStore();
+const { manageableIacs } = storeToRefs(store);
 
 const apps = ref<IAppResponse[]>([]);
-const iacs = ref<IIacResponse[]>([]);
 const clusters = ref<IClusterResponse[]>([]);
 const isLoading = ref(true);
 const showCreate = ref(false);
@@ -103,14 +106,11 @@ const form = reactive<{ name: string; repoUrl: string; environment: EnvironmentF
     environment: blankEnvironment()
 });
 
-// You can only put an app somewhere you could already deploy by hand.
-const manageableIacs = computed(() => iacs.value.filter(iac => iac.role === 'manage'));
 const canCreate = computed(() => manageableIacs.value.length > 0);
 
 async function load() {
     try {
         apps.value = await dataFromAsync(AppsApi.getAppsIndex());
-        iacs.value = await dataFromAsync(IacsApi.getIacsIndex());
     } catch (err) {
         handleErrorAndAlert(err);
     } finally {
