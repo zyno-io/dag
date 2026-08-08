@@ -160,3 +160,13 @@ mirror:
       git remote add github git@github.com:zyno-io/dag.git
       git push github "FETCH_HEAD:${CI_DEFAULT_BRANCH}" --force
       git push github --tags --force
+
+osv scan:
+  stage: test
+  allow_failure: true
+  image:
+    name: ghcr.io/google/osv-scanner:latest
+    entrypoint: ['']
+  before_script: []
+  script:
+    - /osv-scanner scan source --recursive .
