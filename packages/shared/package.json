@@ -9,8 +9,40 @@
         "clean": "rm -rf dist"
     },
     "devDependencies": {
-        "@zyno-io/ts-server-foundation": "26.712.36",
-        "ttsc": "0.18.3",
-        "typescript": "7.0.2"
+        "@zyno-io/ts-server-foundation": "26.807.2355",
+        "ttsc": "^0.25.0",
+        "typescript": "^7.0.2"
+    },
+    "dependenciesMeta": {
+        "@ttsc/darwin-arm64": {
+            "unplugged": true
+        },
+        "@ttsc/darwin-x64": {
+            "unplugged": true
+        },
+        "@ttsc/linux-arm": {
+            "unplugged": true
+        },
+        "@ttsc/linux-arm64": {
+            "unplugged": true
+        },
+        "@ttsc/linux-x64": {
+            "unplugged": true
+        },
+        "@ttsc/win32-arm64": {
+            "unplugged": true
+        },
+        "@ttsc/win32-x64": {
+            "unplugged": true
+        },
+        "protoc": {
+            "unplugged": true
+        },
+        "ts-proto": {
+            "unplugged": true
+        },
+        "ttsc": {
+            "unplugged": true
+        }
     }
 }

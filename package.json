@@ -28,9 +28,9 @@
         "format": "oxfmt --write ."
     },
     "devDependencies": {
-        "lefthook": "^2.1.2",
-        "oxfmt": "^0.36.0",
-        "oxlint": "^1.50.0",
+        "lefthook": "^2.1.10",
+        "oxfmt": "^0.62.0",
+        "oxlint": "^1.77.0",
         "vitepress": "^1.6.4"
     },
     "resolutions": {
