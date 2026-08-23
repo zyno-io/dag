@@ -12,7 +12,7 @@ test('deployment detail — terminal', async ({ page }) => {
     await page.goto(`/deployments/${ids.deploymentId}`);
 
     await expect(page.getByRole('heading', { name: deploymentDetail.version })).toBeVisible();
-    await expect(page.locator('.status-chip')).toContainText('deployed');
+    await expect(page.locator('#deployment > .header > .status-chip')).toContainText('deployed');
     await page.waitForTimeout(300);
 
     const path = `${SCREENSHOTS_DIR}/deployment.png`;
