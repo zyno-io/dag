@@ -1,4 +1,4 @@
-import type { DeploymentStatus } from '@zyno-io/dag-shared';
+import type { DeploymentStatus, DeploymentTargetStatus } from '@zyno-io/dag-shared';
 
 import { http, HttpNotFoundError, HttpQueries } from '@zyno-io/ts-server-foundation';
 
@@ -6,6 +6,7 @@ import { UserAuthMiddleware } from '../accessories/auth-middleware.accessory';
 import { ApiController } from '../accessories/controller.accessory';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { AppEntity } from '../entities/app.entity';
+import { DeploymentTargetEntity } from '../entities/deployment-target.entity';
 import { DeploymentEntity } from '../entities/deployment.entity';
 import { IacEntity } from '../entities/iac.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -29,8 +30,21 @@ interface IDeploymentResponse {
     commitUrl: string | null;
     /** The app commit that was deployed. */
     sourceCommitSha: string | null;
+    targets: IDeploymentTargetResponse[];
     createdAt: Date;
     updatedAt: Date;
+}
+
+interface IDeploymentTargetResponse {
+    id: string;
+    clusterId: number;
+    clusterName: string;
+    helmType: 'flux' | 'plain';
+    helmNamespace: string;
+    helmName: string;
+    status: DeploymentTargetStatus;
+    statusMessage: string | null;
+    completedAt: Date | null;
 }
 
 interface IDeploymentListQuery {
@@ -141,6 +155,19 @@ export class DeploymentsController {
             : [];
         const iacsById = new Map(iacs.map(iac => [iac.id, iac]));
 
+        const deploymentIds = deployments.map(deployment => deployment.id);
+        const targets = deploymentIds.length
+            ? await DeploymentTargetEntity.query()
+                  .filter({ deploymentId: { $in: deploymentIds } })
+                  .find()
+            : [];
+        const targetsByDeploymentId = new Map<string, DeploymentTargetEntity[]>();
+        for (const target of targets) {
+            const deploymentTargets = targetsByDeploymentId.get(target.deploymentId) ?? [];
+            deploymentTargets.push(target);
+            targetsByDeploymentId.set(target.deploymentId, deploymentTargets);
+        }
+
         return deployments.map(deployment => {
             const environment = environmentsById.get(deployment.appEnvironmentId)!;
             const app = appsById.get(environment.appId);
@@ -160,6 +187,17 @@ export class DeploymentsController {
                 jobUrl: app ? buildJobUrl(app.gitProvider, app.repoUrl, deployment.ciJobId) : '',
                 commitUrl: iac && deployment.commitSha ? (buildCommitUrl(iac.repoUrl, deployment.commitSha) ?? null) : null,
                 sourceCommitSha: deployment.sourceCommitSha,
+                targets: (targetsByDeploymentId.get(deployment.id) ?? []).map(target => ({
+                    id: target.id,
+                    clusterId: target.clusterId,
+                    clusterName: target.clusterName,
+                    helmType: target.helmType,
+                    helmNamespace: target.helmNamespace,
+                    helmName: target.helmName,
+                    status: target.status,
+                    statusMessage: target.statusMessage,
+                    completedAt: target.completedAt
+                })),
                 createdAt: deployment.createdAt,
                 updatedAt: deployment.updatedAt
             };

@@ -2,6 +2,7 @@ import { createPersistedEntity, http, HttpBadRequestError, HttpBody, HttpNotFoun
 
 import { UserAuthMiddleware } from '../accessories/auth-middleware.accessory';
 import { ApiController } from '../accessories/controller.accessory';
+import { AppEnvironmentTargetEntity } from '../entities/app-environment-target.entity';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -55,8 +56,9 @@ export class ClustersController {
 
         const clusters = await ClusterEntity.query().orderBy('name').find();
         const environments = await AppEnvironmentEntity.query().find();
+        const targets = await AppEnvironmentTargetEntity.query().find();
 
-        return clusters.map(cluster => this.toResponse(cluster, environments));
+        return clusters.map(cluster => this.toResponse(cluster, environments, targets));
     }
 
     @http.POST()
@@ -76,7 +78,7 @@ export class ClustersController {
             updatedAt: new Date()
         });
 
-        return this.toResponse(cluster, []);
+        return this.toResponse(cluster, [], []);
     }
 
     @http.PUT(':id')
@@ -102,7 +104,8 @@ export class ClustersController {
         await persistEntity(cluster);
 
         const environments = await AppEnvironmentEntity.query().find();
-        return this.toResponse(cluster, environments);
+        const targets = await AppEnvironmentTargetEntity.query().find();
+        return this.toResponse(cluster, environments, targets);
     }
 
     @http.DELETE(':id')
@@ -112,7 +115,13 @@ export class ClustersController {
         const cluster = await this.load(id);
 
         // Nothing in the schema stops this, and a dangling clusterId would only fail at deploy time.
-        const inUse = await AppEnvironmentEntity.query().filter({ clusterId: cluster.id }).count();
+        const environments = await AppEnvironmentEntity.query().find();
+        const targets = await AppEnvironmentTargetEntity.query().filter({ clusterId: cluster.id }).find();
+        const targetedEnvironmentIds = new Set(targets.map(target => target.appEnvironmentId));
+        const legacyInUse = environments.filter(
+            environment => environment.clusterId === cluster.id && !targetedEnvironmentIds.has(environment.id)
+        ).length;
+        const inUse = targetedEnvironmentIds.size + legacyInUse;
         if (inUse > 0) {
             throw new HttpBadRequestError(`Cluster is still used by ${inUse} environment(s)`);
         }
@@ -127,13 +136,17 @@ export class ClustersController {
         return cluster;
     }
 
-    private toResponse(cluster: ClusterEntity, environments: AppEnvironmentEntity[]): IClusterResponse {
+    private toResponse(cluster: ClusterEntity, environments: AppEnvironmentEntity[], targets: AppEnvironmentTargetEntity[]): IClusterResponse {
+        const targetedEnvironmentIds = new Set(targets.filter(target => target.clusterId === cluster.id).map(target => target.appEnvironmentId));
+        const legacyEnvironmentCount = environments.filter(
+            environment => environment.clusterId === cluster.id && !targetedEnvironmentIds.has(environment.id)
+        ).length;
         return {
             id: cluster.id,
             name: cluster.name,
             apiUrl: cluster.apiUrl,
             hasCaCert: !!cluster.caCert,
-            environmentCount: environments.filter(env => env.clusterId === cluster.id).length,
+            environmentCount: targetedEnvironmentIds.size + legacyEnvironmentCount,
             createdAt: cluster.createdAt,
             updatedAt: cluster.updatedAt
         };

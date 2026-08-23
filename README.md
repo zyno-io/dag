@@ -6,7 +6,7 @@ Push Helm charts from CI pipelines to IAC repos and monitor Kubernetes deploymen
 
 ## Overview
 
-DAG is a GitOps deployment automation system. It receives Helm charts from CI pipelines, commits them to your Infrastructure-as-Code repository, and monitors the Kubernetes cluster until the deployment succeeds or fails — streaming status updates back to your pipeline in real time via SSE.
+DAG is a GitOps deployment automation system. It receives Helm charts from CI pipelines, commits them to your Infrastructure-as-Code repository, and monitors every configured Kubernetes cluster until the deployment succeeds or fails — streaming status updates back to your pipeline in real time via SSE.
 
 ```
 ┌─────────────────┐         HTTP          ┌─────────────────┐
@@ -26,7 +26,7 @@ DAG is a GitOps deployment automation system. It receives Helm charts from CI pi
 ## Features
 
 - **GitOps Native** — commits Helm charts to your IAC Git repo, keeping Git as the single source of truth. DAG never applies changes to Kubernetes directly.
-- **Real-Time Monitoring** — streams deployment status via SSE so your CI pipeline shows live progress from `pending` through `deployed`.
+- **Multi-Cluster Gating** — monitors Helm and Flux targets in parallel, and reports success only when every configured target has succeeded.
 - **Flux & Plain Helm** — monitors both FluxCD HelmRelease CRDs and plain Helm release secrets.
 - **CI Auto-Detection** — automatically picks up repo URL, job ID, and job token from GitLab CI and GitHub Actions environments.
 - **Concurrent Safety** — serializes deployments to the same IAC repo with mutex locks to prevent merge conflicts.

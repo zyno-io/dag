@@ -67,17 +67,15 @@ Register Kubernetes clusters that DAG will monitor for deployment status.
 
 ### App Environments
 
-Map an app's branch and environment name to a specific IAC repo path, cluster, and Helm configuration.
+Map an app's branch and environment name to a specific IaC repo path and one or more Kubernetes deployment targets.
 
-| Field           | Type                | Description                             |
-| --------------- | ------------------- | --------------------------------------- |
-| `appId`         | `number`            | Foreign key to App                      |
-| `branch`        | `string`            | Git branch name (e.g. `main`)           |
-| `name`          | `string`            | Target environment name (e.g. `prod`)   |
-| `iacId`         | `number`            | Foreign key to IAC Repository           |
-| `iacPath`       | `string`            | Path within IAC repo to place the chart |
-| `clusterId`     | `number`            | Foreign key to Cluster                  |
-| `helmType`      | `'flux' \| 'plain'` | Helm deployment type                    |
-| `helmNamespace` | `string \| null`    | Kubernetes namespace                    |
-| `helmName`      | `string \| null`    | Helm release name                       |
-| `iacBranch`     | `string \| null`    | IAC repo branch (null = default branch) |
+| Field       | Type             | Description                             |
+| ----------- | ---------------- | --------------------------------------- |
+| `appId`     | `number`         | Foreign key to App                      |
+| `branch`    | `string`         | Git branch name (e.g. `main`)           |
+| `name`      | `string`         | Target environment name (e.g. `prod`)   |
+| `iacId`     | `number`         | Foreign key to IAC Repository           |
+| `iacPath`   | `string`         | Path within IAC repo to place the chart |
+| `iacBranch` | `string \| null` | IAC repo branch (null = default branch) |
+
+Each environment has a non-empty `targets` list. A target contains `clusterId`, `helmType`, `helmNamespace` (default `default`), and `helmName` (default chart basename). DAG pushes the chart once to the environment's IaC path, then monitors every target concurrently. A deployment succeeds only when every target reports a successful Helm install or HelmRelease reconciliation.

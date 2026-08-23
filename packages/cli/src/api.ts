@@ -1,4 +1,4 @@
-import type { DeployResponse, DeploymentStatusEvent } from '@zyno-io/dag-shared';
+import type { DeploymentTargetStatusEvent, DeployResponse, DeploymentStatusEvent } from '@zyno-io/dag-shared';
 
 import { EventSource } from 'eventsource';
 
@@ -92,7 +92,8 @@ export function streamDeploymentEvents(
     serverUrl: string,
     deploymentId: string,
     timeout: number,
-    onEvent: (event: DeploymentStatusEvent) => void
+    onEvent: (event: DeploymentStatusEvent) => void,
+    onTargetEvent?: (event: DeploymentTargetStatusEvent) => void
 ): Promise<DeploymentStatusEvent> {
     return new Promise((resolve, reject) => {
         const url = `${serverUrl.replace(/\/+$/, '')}/api/deployments/${deploymentId}/events`;
@@ -142,6 +143,17 @@ export function streamDeploymentEvents(
                     es.close();
                     resolve(data);
                 }
+            } catch {
+                // Ignore parse errors
+            }
+        });
+
+        es.addEventListener('target', (event: MessageEvent) => {
+            resetLivenessTimer();
+
+            try {
+                const data = JSON.parse(event.data) as DeploymentTargetStatusEvent;
+                onTargetEvent?.(data);
             } catch {
                 // Ignore parse errors
             }

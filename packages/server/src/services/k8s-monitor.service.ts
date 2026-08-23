@@ -2,7 +2,6 @@ import * as k8s from '@kubernetes/client-node';
 import { ScopedLogger } from '@zyno-io/ts-server-foundation';
 
 import { AppConfig } from '../config';
-import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
 import { decryptField } from '../helpers/crypto';
 
@@ -22,19 +21,26 @@ export interface PreDeploySnapshot {
     plainVersion?: number;
 }
 
+/** Immutable Helm destination copied into a deployment target before monitoring begins. */
+export interface HelmDeploymentTarget {
+    helmType: 'flux' | 'plain';
+    helmNamespace: string;
+    helmName: string;
+}
+
 export class K8sMonitorService {
     constructor(
         private config: AppConfig,
         private logger: ScopedLogger
     ) {}
 
-    async capturePreDeployState(cluster: ClusterEntity, appEnvironment: AppEnvironmentEntity): Promise<PreDeploySnapshot | null> {
+    async capturePreDeployState(cluster: ClusterEntity, target: HelmDeploymentTarget): Promise<PreDeploySnapshot | null> {
         try {
             const kc = await this.createKubeConfig(cluster);
-            const namespace = appEnvironment.helmNamespace ?? 'default';
-            const helmName = appEnvironment.helmName ?? appEnvironment.iacPath.split('/').pop()!;
+            const namespace = target.helmNamespace;
+            const helmName = target.helmName;
 
-            if (appEnvironment.helmType === 'flux') {
+            if (target.helmType === 'flux') {
                 const customApi = kc.makeApiClient(k8s.CustomObjectsApi);
                 const response = await customApi.getNamespacedCustomObject({
                     group: 'helm.toolkit.fluxcd.io',
@@ -66,16 +72,16 @@ export class K8sMonitorService {
 
     async watchDeployment(
         cluster: ClusterEntity,
-        appEnvironment: AppEnvironmentEntity,
+        target: HelmDeploymentTarget,
         callbacks: MonitorCallbacks,
         preDeploySnapshot?: PreDeploySnapshot | null
     ): Promise<void> {
         const timeoutMs = this.config.DEPLOY_MONITOR_TIMEOUT_SECS * 1000;
 
-        if (appEnvironment.helmType === 'flux') {
-            await this.watchFluxHelmRelease(cluster, appEnvironment, callbacks, timeoutMs, preDeploySnapshot);
+        if (target.helmType === 'flux') {
+            await this.watchFluxHelmRelease(cluster, target, callbacks, timeoutMs, preDeploySnapshot);
         } else {
-            await this.watchPlainHelmRelease(cluster, appEnvironment, callbacks, timeoutMs, preDeploySnapshot);
+            await this.watchPlainHelmRelease(cluster, target, callbacks, timeoutMs, preDeploySnapshot);
         }
     }
 
@@ -110,15 +116,15 @@ export class K8sMonitorService {
 
     private async watchFluxHelmRelease(
         cluster: ClusterEntity,
-        appEnvironment: AppEnvironmentEntity,
+        target: HelmDeploymentTarget,
         callbacks: MonitorCallbacks,
         timeoutMs: number,
         preDeploySnapshot?: PreDeploySnapshot | null
     ): Promise<void> {
         const kc = await this.createKubeConfig(cluster);
         const customApi = kc.makeApiClient(k8s.CustomObjectsApi);
-        const namespace = appEnvironment.helmNamespace ?? 'default';
-        const helmReleaseName = appEnvironment.helmName ?? appEnvironment.iacPath.split('/').pop()!;
+        const namespace = target.helmNamespace;
+        const helmReleaseName = target.helmName;
         const clusterLabel = `cluster ${cluster.id} (${cluster.apiUrl})`;
 
         this.logger.info(`Watching Flux HelmRelease ${namespace}/${helmReleaseName} on ${clusterLabel}`);
@@ -222,15 +228,15 @@ export class K8sMonitorService {
 
     private async watchPlainHelmRelease(
         cluster: ClusterEntity,
-        appEnvironment: AppEnvironmentEntity,
+        target: HelmDeploymentTarget,
         callbacks: MonitorCallbacks,
         timeoutMs: number,
         preDeploySnapshot?: PreDeploySnapshot | null
     ): Promise<void> {
         const kc = await this.createKubeConfig(cluster);
         const coreApi = kc.makeApiClient(k8s.CoreV1Api);
-        const namespace = appEnvironment.helmNamespace ?? 'default';
-        const helmName = appEnvironment.helmName ?? appEnvironment.iacPath.split('/').pop()!;
+        const namespace = target.helmNamespace;
+        const helmName = target.helmName;
         const clusterLabel = `cluster ${cluster.id} (${cluster.apiUrl})`;
 
         this.logger.info(`Watching plain Helm release ${namespace}/${helmName} on ${clusterLabel}`);

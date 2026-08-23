@@ -315,7 +315,8 @@ describe('GitLab-derived permissions', () => {
         const environment = JSON.parse(response.bodyString);
         assert.equal(environment.name, 'staging-ok');
         assert.equal(environment.iacName, 'prod-iac');
-        assert.equal(environment.clusterName, 'prod-1');
+        assert.equal(environment.targets.length, 1);
+        assert.equal(environment.targets[0].clusterName, 'prod-1');
     });
 
     it('refuses to reuse an IaC repository chart path', async () => {

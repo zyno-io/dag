@@ -168,7 +168,13 @@ program
             });
 
             // Stream events
-            const finalEvent = await streamDeploymentEvents(serverUrl, deploymentId, timeout, event => display.update(event));
+            const finalEvent = await streamDeploymentEvents(
+                serverUrl,
+                deploymentId,
+                timeout,
+                event => display.update(event),
+                event => display.updateTarget(event)
+            );
 
             if (finalEvent.status === 'failed') {
                 process.exit(1);

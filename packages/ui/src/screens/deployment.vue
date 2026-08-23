@@ -50,6 +50,23 @@
             </dl>
 
             <section>
+                <h2>Cluster targets</h2>
+                <div v-if="deployment.targets.length" class="targets">
+                    <div v-for="target in deployment.targets" :key="target.id" class="target">
+                        <div>
+                            <strong>{{ target.clusterName }}</strong>
+                            <span>{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }}</span>
+                        </div>
+                        <div class="target-status">
+                            <StatusChip :status="target.status" />
+                            <span v-if="target.statusMessage">{{ target.statusMessage }}</span>
+                        </div>
+                    </div>
+                </div>
+                <p v-else class="empty-targets">This deployment predates per-cluster result tracking.</p>
+            </section>
+
+            <section>
                 <h2>Progress</h2>
                 <ol class="timeline">
                     <li v-for="(entry, i) in timeline" :key="i" :class="entry.status">
@@ -72,7 +89,7 @@ import { format } from 'date-fns';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { DeploymentsApi, type IDeploymentResponse } from '@/openapi-client-generated';
+import { DeploymentsApi, type DeploymentTargetStatus, type IDeploymentResponse } from '@/openapi-client-generated';
 import LoaderModal from '@/shared/components/loader-modal.vue';
 import StatusChip from '@/shared/components/status-chip.vue';
 import { isTerminal, type DeploymentStatus } from '@/shared/deployment-status';
@@ -86,6 +103,16 @@ interface StatusEvent {
     status: DeploymentStatus;
     message: string;
     commitUrl?: string;
+}
+
+interface TargetStatusEvent {
+    target: {
+        id: string;
+        clusterId: number;
+        clusterName: string;
+        status: DeploymentTargetStatus;
+        message: string;
+    };
 }
 
 const route = useRoute();
@@ -118,6 +145,16 @@ function record(event: StatusEvent) {
     timeline.value.push({ status: event.status, message: event.message });
 }
 
+function recordTarget(event: TargetStatusEvent) {
+    if (!deployment.value) return;
+
+    const target = deployment.value.targets.find(candidate => candidate.id === event.target.id);
+    if (!target) return;
+
+    target.status = event.target.status;
+    target.statusMessage = event.target.message;
+}
+
 /**
  * The same SSE endpoint the CLI streams. It replays the current status on connect and closes
  * itself once the deployment reaches a terminal state, so a finished deployment just yields one
@@ -134,6 +171,14 @@ function stream() {
         }
 
         if (isTerminal(status.value)) close();
+    });
+
+    source.addEventListener('target', message => {
+        try {
+            recordTarget(JSON.parse((message as MessageEvent).data) as TargetStatusEvent);
+        } catch {
+            // A malformed frame shouldn't tear down the stream.
+        }
     });
 
     source.addEventListener('error', () => {
@@ -207,6 +252,34 @@ html.dark .live-banner {
 
 section {
     @apply flex flex-col gap-3;
+}
+
+.targets {
+    @apply flex flex-col gap-2;
+}
+
+.target {
+    @apply flex items-start justify-between gap-4 p-3 border border-neutral-500/25 rounded-lg text-sm;
+
+    > div:first-child {
+        @apply flex flex-col gap-0.5;
+
+        span {
+            @apply text-xs text-neutral-500;
+        }
+    }
+}
+
+.target-status {
+    @apply flex flex-col items-end gap-1 text-right;
+
+    span {
+        @apply text-xs text-neutral-500 max-w-md;
+    }
+}
+
+.empty-targets {
+    @apply text-sm text-neutral-500;
 }
 
 .timeline {

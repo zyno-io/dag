@@ -1,15 +1,14 @@
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it, beforeEach } from 'node:test';
 
-import { K8sMonitorService, MonitorCallbacks } from '../../services/k8s-monitor.service';
-import { AppEnvironmentEntity } from '../../entities/app-environment.entity';
-import { ClusterEntity } from '../../entities/cluster.entity';
 import { AppConfig } from '../../config';
+import { ClusterEntity } from '../../entities/cluster.entity';
+import { HelmDeploymentTarget, K8sMonitorService, MonitorCallbacks } from '../../services/k8s-monitor.service';
 
 describe('K8sMonitorService', () => {
     let service: K8sMonitorService;
     let _mockCluster: ClusterEntity;
-    let mockAppEnvironment: AppEnvironmentEntity;
+    let mockTarget: HelmDeploymentTarget;
     let messages: string[];
     let _callbacks: MonitorCallbacks;
 
@@ -29,13 +28,11 @@ describe('K8sMonitorService', () => {
             caCert: null
         } as ClusterEntity;
 
-        mockAppEnvironment = {
-            id: 1,
+        mockTarget = {
             helmType: 'flux',
             helmNamespace: 'default',
-            helmName: 'my-app',
-            iacPath: 'charts/my-app'
-        } as AppEnvironmentEntity;
+            helmName: 'my-app'
+        };
 
         messages = [];
         _callbacks = {
@@ -50,13 +47,13 @@ describe('K8sMonitorService', () => {
         assert.equal(typeof service.watchDeployment, 'function');
     });
 
-    it('should use helmName for monitoring when provided', () => {
-        assert.equal(mockAppEnvironment.helmName, 'my-app');
+    it('uses the immutable Helm target snapshot for monitoring', () => {
+        assert.equal(mockTarget.helmName, 'my-app');
+        assert.equal(mockTarget.helmNamespace, 'default');
     });
 
-    it('should fall back to iacPath basename when helmName is null', () => {
-        mockAppEnvironment.helmName = null;
-        const fallbackName = mockAppEnvironment.iacPath.split('/').pop();
-        assert.equal(fallbackName, 'my-app');
+    it('requires resolved Helm fields rather than reading mutable environment configuration', () => {
+        assert.equal(mockTarget.helmType, 'flux');
+        assert.equal(typeof mockTarget.helmName, 'string');
     });
 });

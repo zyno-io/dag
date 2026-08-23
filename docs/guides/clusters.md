@@ -23,35 +23,35 @@ Create a service account with the minimum permissions DAG needs to monitor deplo
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: dag-monitor
-  namespace: dag
+    name: dag-monitor
+    namespace: dag
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: dag-monitor
+    name: dag-monitor
 rules:
-  # For plain Helm monitoring
-  - apiGroups: ['']
-    resources: ['secrets']
-    verbs: ['list']
-  # For FluxCD monitoring
-  - apiGroups: ['helm.toolkit.fluxcd.io']
-    resources: ['helmreleases']
-    verbs: ['get']
+    # For plain Helm monitoring
+    - apiGroups: ['']
+      resources: ['secrets']
+      verbs: ['list']
+    # For FluxCD monitoring
+    - apiGroups: ['helm.toolkit.fluxcd.io']
+      resources: ['helmreleases']
+      verbs: ['get']
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: dag-monitor
-subjects:
-  - kind: ServiceAccount
     name: dag-monitor
-    namespace: dag
+subjects:
+    - kind: ServiceAccount
+      name: dag-monitor
+      namespace: dag
 roleRef:
-  kind: ClusterRole
-  name: dag-monitor
-  apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: dag-monitor
+    apiGroup: rbac.authorization.k8s.io
 ```
 
 Apply the manifests:
@@ -68,10 +68,10 @@ Create a long-lived token for the service account:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: dag-monitor-token
-  namespace: dag
-  annotations:
-    kubernetes.io/service-account.name: dag-monitor
+    name: dag-monitor-token
+    namespace: dag
+    annotations:
+        kubernetes.io/service-account.name: dag-monitor
 type: kubernetes.io/service-account-token
 ```
 
@@ -101,7 +101,7 @@ kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authori
 
 ## Flux vs Plain Helm
 
-DAG supports two monitoring modes, configured per app environment via the `helmType` field:
+DAG supports two monitoring modes, configured per environment target via the `helmType` field. Targets in the same environment are monitored in parallel.
 
 ### FluxCD (`flux`)
 

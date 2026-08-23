@@ -40,20 +40,18 @@ See [Clusters](./clusters.md) for service account and CA certificate setup.
 
 ## 4. Create an App Environment
 
-Map a branch and environment name to an IAC repo path, cluster, and Helm configuration:
+Map a branch and environment name to an IaC repo path and one or more cluster targets:
 
-| Field           | Type                | Description                             |
-| --------------- | ------------------- | --------------------------------------- |
-| `appId`         | `number`            | Foreign key to App                      |
-| `branch`        | `string`            | Git branch that triggers deployment     |
-| `name`          | `string`            | Target environment name                 |
-| `iacId`         | `number`            | Foreign key to IAC Repository           |
-| `iacPath`       | `string`            | Path within IAC repo to place the chart |
-| `clusterId`     | `number`            | Foreign key to Cluster                  |
-| `helmType`      | `'flux' \| 'plain'` | Helm deployment type                    |
-| `helmNamespace` | `string \| null`    | Kubernetes namespace                    |
-| `helmName`      | `string \| null`    | Helm release name                       |
-| `iacBranch`     | `string \| null`    | IAC repo branch (null = default branch) |
+| Field       | Type             | Description                             |
+| ----------- | ---------------- | --------------------------------------- |
+| `appId`     | `number`         | Foreign key to App                      |
+| `branch`    | `string`         | Git branch that triggers deployment     |
+| `name`      | `string`         | Target environment name                 |
+| `iacId`     | `number`         | Foreign key to IAC Repository           |
+| `iacPath`   | `string`         | Path within IAC repo to place the chart |
+| `iacBranch` | `string \| null` | IAC repo branch (null = default branch) |
+
+Add a target for every cluster that should receive the chart. A target has `clusterId`, `helmType`, `helmNamespace`, and `helmName`. DAG monitors every target in parallel and reports success only if all targets succeed.
 
 ```sql
 INSERT INTO apps_environments

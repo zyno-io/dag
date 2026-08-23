@@ -10,7 +10,7 @@ Every deployment in DAG progresses through a series of statuses. These statuses 
 | `validating` | Job token has been verified; deployment is starting                          |
 | `pushing`    | Cloning/updating the IAC repo, extracting the chart, committing, and pushing |
 | `pushed`     | Chart successfully committed to the IAC repository                           |
-| `monitoring` | Polling the Kubernetes cluster for deployment status                         |
+| `monitoring` | Polling every configured Kubernetes target for deployment status             |
 | `deployed`   | Deployment completed successfully (terminal)                                 |
 | `failed`     | Deployment failed at any stage (terminal)                                    |
 
@@ -23,6 +23,10 @@ pending → validating → pushing → pushed → monitoring → deployed
 ```
 
 A deployment can transition to `failed` from any non-terminal status.
+
+## Multi-cluster Deployments
+
+An environment can contain multiple cluster targets. DAG monitors them in parallel and records an independent `pending`, `monitoring`, `deployed`, or `failed` outcome for each target. The parent deployment remains `monitoring` until every target is terminal; it is `deployed` only when all targets succeeded, otherwise it is `failed` with the failed-target summary.
 
 ## Terminal States
 

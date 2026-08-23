@@ -9,6 +9,8 @@ describe('controller environment selector forwarding', () => {
         const sentinel = new Error('stop');
         let receivedEnvironment: string | undefined;
         const controller = new DeployController(
+            {} as any,
+            {} as any,
             {
                 authenticateAndResolve: async (_repoUrl: string, _jobId: string, _jobToken: string, environment?: string) => {
                     receivedEnvironment = environment;

@@ -1,6 +1,7 @@
+import type { DeploymentStatus, DeploymentStatusEvent, DeploymentTargetStatusEvent } from '@zyno-io/dag-shared';
+
 import chalk from 'chalk';
 import ora, { Ora } from 'ora';
-import type { DeploymentStatus, DeploymentStatusEvent } from '@zyno-io/dag-shared';
 
 const STATUS_COLORS: Record<DeploymentStatus, (text: string) => string> = {
     pending: chalk.gray,
@@ -53,6 +54,20 @@ export class DeploymentDisplay {
             }
             this.lastMessage = event.message;
         }
+    }
+
+    /** Per-target events never complete the overall spinner; only the parent aggregate does. */
+    updateTarget(event: DeploymentTargetStatusEvent): void {
+        const { clusterName, status, message } = event.target;
+        const colorFn = status === 'deployed' ? chalk.green : status === 'failed' ? chalk.red : chalk.blue;
+        const text = `[${clusterName}] [${status}] ${message}`;
+
+        if (this.isTTY) {
+            this.spinner.text = colorFn(text);
+        } else if (text !== this.lastMessage) {
+            console.error(colorFn(`  ${text}`));
+        }
+        this.lastMessage = text;
     }
 
     error(message: string): void {

@@ -1,5 +1,6 @@
 import { HttpAccessDeniedError, HttpBadRequestError, HttpNotFoundError } from '@zyno-io/ts-server-foundation';
 
+import { AppEnvironmentTargetEntity } from '../entities/app-environment-target.entity';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { AppEntity } from '../entities/app.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
@@ -20,6 +21,16 @@ export interface AppRoles {
     sourceCanRead: boolean;
     /** Environment visibility after combining source-repo and per-IaC access. */
     visibleEnvironmentIds: Set<number>;
+}
+
+/** A resolved Helm destination. Values are explicit, even when the API input used Helm defaults. */
+export interface EnvironmentTarget {
+    id: number | null;
+    appEnvironmentId: number;
+    clusterId: number;
+    helmType: 'flux' | 'plain';
+    helmNamespace: string;
+    helmName: string;
 }
 
 /**
@@ -129,9 +140,61 @@ export class AppAccessService {
         return new Map(entries);
     }
 
+    /**
+     * Reads normalized targets for the supplied environments. The fallback keeps records created
+     * before the multi-target migration usable while they are being progressively updated.
+     */
+    async targetsFor(environments: AppEnvironmentEntity[]): Promise<Map<number, EnvironmentTarget[]>> {
+        const environmentIds = environments.map(environment => environment.id);
+        const targetsByEnvironmentId = new Map<number, EnvironmentTarget[]>(environmentIds.map(id => [id, []]));
+        if (!environmentIds.length) return targetsByEnvironmentId;
+
+        const targets = await AppEnvironmentTargetEntity.query()
+            .filter({ appEnvironmentId: { $in: environmentIds } })
+            .orderBy('id')
+            .find();
+
+        for (const target of targets) {
+            const environmentTargets = targetsByEnvironmentId.get(target.appEnvironmentId);
+            if (environmentTargets) {
+                environmentTargets.push({
+                    id: target.id,
+                    appEnvironmentId: target.appEnvironmentId,
+                    clusterId: target.clusterId,
+                    helmType: target.helmType,
+                    helmNamespace: target.helmNamespace,
+                    helmName: target.helmName
+                });
+            }
+        }
+
+        // Direct test fixtures and deployments created between migration and rollout can still
+        // have only the legacy columns. They remain a one-target environment until edited.
+        for (const environment of environments) {
+            const environmentTargets = targetsByEnvironmentId.get(environment.id)!;
+            if (environmentTargets.length === 0) {
+                environmentTargets.push({
+                    id: null,
+                    appEnvironmentId: environment.id,
+                    clusterId: environment.clusterId,
+                    helmType: environment.helmType,
+                    helmNamespace: environment.helmNamespace ?? 'default',
+                    helmName: environment.helmName ?? environment.iacPath.split('/').pop()!
+                });
+            }
+        }
+
+        return targetsByEnvironmentId;
+    }
+
     /** Every cluster referenced by the given environments, by id. */
     async clustersFor(environments: AppEnvironmentEntity[]): Promise<Map<number, ClusterEntity>> {
-        const ids = [...new Set(environments.map(env => env.clusterId))];
+        const targetsByEnvironment = await this.targetsFor(environments);
+        return this.clustersForTargets([...targetsByEnvironment.values()].flat());
+    }
+
+    async clustersForTargets(targets: EnvironmentTarget[]): Promise<Map<number, ClusterEntity>> {
+        const ids = [...new Set(targets.map(target => target.clusterId))];
         if (!ids.length) return new Map();
 
         const clusters = await ClusterEntity.query()
@@ -150,23 +213,52 @@ export class AppAccessService {
         return cluster;
     }
 
-    normalizeEnvironmentInput(input: EnvironmentInput): EnvironmentInput {
-        const trimmedOrNull = (value: string | null) => {
+    normalizeEnvironmentInput(input: EnvironmentInput): NormalizedEnvironmentInput {
+        const trimmedOrNull = (value: string | null | undefined) => {
             const trimmed = value?.trim();
             return trimmed ? trimmed : null;
         };
+
+        const legacyTarget: EnvironmentTargetInput[] =
+            input.clusterId && input.helmType
+                ? [
+                      {
+                          clusterId: input.clusterId,
+                          helmType: input.helmType,
+                          helmNamespace: input.helmNamespace ?? null,
+                          helmName: input.helmName ?? null
+                      }
+                  ]
+                : [];
+        const rawTargets: EnvironmentTargetInput[] = input.targets?.length ? input.targets : legacyTarget;
+        if (!rawTargets.length) {
+            throw new HttpBadRequestError('At least one deployment target is required');
+        }
+
+        const iacPath = input.iacPath.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+        const defaultHelmName = iacPath.split('/').pop()!;
+        const targets = rawTargets.map(target => ({
+            clusterId: target.clusterId,
+            helmType: target.helmType,
+            helmNamespace: trimmedOrNull(target.helmNamespace) ?? 'default',
+            helmName: trimmedOrNull(target.helmName) ?? defaultHelmName
+        }));
+        const primaryTarget = targets[0];
 
         return {
             name: input.name.trim(),
             branch: input.branch.trim(),
             iacId: input.iacId,
             // A leading slash would make path.resolve() escape the repo root.
-            iacPath: input.iacPath.trim().replace(/^\/+/, '').replace(/\/+$/, ''),
+            iacPath,
             iacBranch: trimmedOrNull(input.iacBranch),
-            clusterId: input.clusterId,
-            helmType: input.helmType,
-            helmNamespace: trimmedOrNull(input.helmNamespace),
-            helmName: trimmedOrNull(input.helmName)
+            // Keep these fields populated for old clients and the one-target fallback. New
+            // deployment code reads only targets.
+            clusterId: primaryTarget.clusterId,
+            helmType: primaryTarget.helmType,
+            helmNamespace: primaryTarget.helmNamespace,
+            helmName: primaryTarget.helmName,
+            targets
         };
     }
 
@@ -174,21 +266,43 @@ export class AppAccessService {
      * Environment destinations are global resources, not app-scoped ones. Without these checks,
      * two apps can overwrite the same chart directory or monitor the same Helm release.
      */
-    async assertEnvironmentTargetsAreFree(input: EnvironmentInput, excludeId: number | null): Promise<void> {
+    async assertEnvironmentTargetsAreFree(input: NormalizedEnvironmentInput, excludeId: number | null): Promise<void> {
         const sameIacPath = await AppEnvironmentEntity.query().filter({ iacId: input.iacId, iacPath: input.iacPath }).findOneOrUndefined();
         if (sameIacPath && sameIacPath.id !== excludeId) {
             throw new HttpBadRequestError('Another environment already targets this IaC repository and chart path');
         }
 
-        const namespace = input.helmNamespace ?? 'default';
-        const releaseName = input.helmName ?? input.iacPath.split('/').pop()!;
-        const sameHelmTarget = (await AppEnvironmentEntity.query().filter({ clusterId: input.clusterId, helmType: input.helmType }).find()).find(
-            environment =>
-                (environment.helmNamespace ?? 'default') === namespace &&
-                (environment.helmName ?? environment.iacPath.split('/').pop()!) === releaseName
-        );
-        if (sameHelmTarget && sameHelmTarget.id !== excludeId) {
-            throw new HttpBadRequestError('Another environment already targets this cluster, Helm type, namespace, and release name');
+        const targetKeys = new Set<string>();
+        for (const target of input.targets) {
+            const key = `${target.clusterId}:${target.helmType}:${target.helmNamespace}:${target.helmName}`;
+            if (targetKeys.has(key)) {
+                throw new HttpBadRequestError(
+                    'An environment cannot contain the same cluster, Helm type, namespace, and release name more than once'
+                );
+            }
+            targetKeys.add(key);
+        }
+
+        const environments = await AppEnvironmentEntity.query().find();
+        const targetsByEnvironment = await this.targetsFor(environments);
+        for (const [environmentId, targets] of targetsByEnvironment) {
+            if (environmentId === excludeId) continue;
+            for (const target of targets) {
+                const key = `${target.clusterId}:${target.helmType}:${target.helmNamespace}:${target.helmName}`;
+                if (targetKeys.has(key)) {
+                    throw new HttpBadRequestError('Another environment already targets this cluster, Helm type, namespace, and release name');
+                }
+            }
+        }
+    }
+
+    async assertTargetClustersExist(targets: EnvironmentTargetInput[]): Promise<void> {
+        const clusterIds = [...new Set(targets.map(target => target.clusterId))];
+        const clusters = await ClusterEntity.query()
+            .filter({ id: { $in: clusterIds } })
+            .find();
+        if (clusters.length !== clusterIds.length) {
+            throw new HttpNotFoundError('One or more configured clusters do not exist');
         }
     }
 }
@@ -200,8 +314,36 @@ export interface EnvironmentInput {
     iacId: number;
     iacPath: string;
     iacBranch: string | null;
+    /** Multi-cluster configuration. Required for new clients; legacy fields remain accepted. */
+    targets?: EnvironmentTargetInput[];
+    clusterId?: number;
+    helmType?: 'flux' | 'plain';
+    helmNamespace?: string | null;
+    helmName?: string | null;
+}
+
+export interface EnvironmentTargetInput {
     clusterId: number;
     helmType: 'flux' | 'plain';
     helmNamespace: string | null;
     helmName: string | null;
+}
+
+export interface NormalizedEnvironmentInput {
+    name: string;
+    branch: string;
+    iacId: number;
+    iacPath: string;
+    iacBranch: string | null;
+    /** Legacy denormalized primary target, retained until API consumers fully migrate. */
+    clusterId: number;
+    helmType: 'flux' | 'plain';
+    helmNamespace: string;
+    helmName: string;
+    targets: Array<{
+        clusterId: number;
+        helmType: 'flux' | 'plain';
+        helmNamespace: string;
+        helmName: string;
+    }>;
 }

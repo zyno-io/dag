@@ -111,6 +111,24 @@ const environments: IEnvironmentResponse[] = [
         helmType: 'flux',
         helmNamespace: 'checkout',
         helmName: 'checkout-service',
+        targets: [
+            {
+                id: 1,
+                clusterId: 1,
+                clusterName: 'prod-eu',
+                helmType: 'flux',
+                helmNamespace: 'checkout',
+                helmName: 'checkout-service'
+            },
+            {
+                id: 2,
+                clusterId: 3,
+                clusterName: 'prod-us',
+                helmType: 'flux',
+                helmNamespace: 'checkout',
+                helmName: 'checkout-service'
+            }
+        ],
         canManage: true,
         createdAt: '2025-09-01T10:00:00.000Z',
         updatedAt: '2026-03-30T18:21:00.000Z'
@@ -129,6 +147,16 @@ const environments: IEnvironmentResponse[] = [
         helmType: 'plain',
         helmNamespace: 'checkout-staging',
         helmName: 'checkout-service',
+        targets: [
+            {
+                id: 3,
+                clusterId: 2,
+                clusterName: 'staging',
+                helmType: 'plain',
+                helmNamespace: 'checkout-staging',
+                helmName: 'checkout-service'
+            }
+        ],
         // Read-only on staging-infra, so this environment's edit controls stay hidden.
         canManage: false,
         createdAt: '2025-09-02T10:00:00.000Z',
@@ -156,6 +184,30 @@ export const deployments: IDeploymentResponse[] = [
         jobUrl: 'https://gitlab.example.com/acme/checkout-service/-/jobs/48213',
         commitUrl: 'https://gitlab.example.com/acme/prod-infra/-/commit/deadbeefcafe',
         sourceCommitSha: 'feedface12345678',
+        targets: [
+            {
+                id: '018f0000-0000-7000-8000-000000000101',
+                clusterId: 1,
+                clusterName: 'prod-eu',
+                helmType: 'flux',
+                helmNamespace: 'checkout',
+                helmName: 'checkout-service',
+                status: 'deployed',
+                statusMessage: 'HelmRelease reconciled successfully',
+                completedAt: '2026-03-30T18:21:00.000Z'
+            },
+            {
+                id: '018f0000-0000-7000-8000-000000000102',
+                clusterId: 3,
+                clusterName: 'prod-us',
+                helmType: 'flux',
+                helmNamespace: 'checkout',
+                helmName: 'checkout-service',
+                status: 'deployed',
+                statusMessage: 'HelmRelease reconciled successfully',
+                completedAt: '2026-03-30T18:21:00.000Z'
+            }
+        ],
         createdAt: '2026-03-30T18:19:00.000Z',
         updatedAt: '2026-03-30T18:21:00.000Z'
     },
@@ -173,6 +225,19 @@ export const deployments: IDeploymentResponse[] = [
         jobUrl: 'https://gitlab.example.com/acme/billing-api/-/jobs/48210',
         commitUrl: null,
         sourceCommitSha: 'abcdef01234567',
+        targets: [
+            {
+                id: '018f0000-0000-7000-8000-000000000103',
+                clusterId: 4,
+                clusterName: 'billing-prod',
+                helmType: 'flux',
+                helmNamespace: 'billing',
+                helmName: 'billing-api',
+                status: 'monitoring',
+                statusMessage: 'Waiting for HelmRelease to become ready',
+                completedAt: null
+            }
+        ],
         createdAt: '2026-04-01T14:58:00.000Z',
         updatedAt: '2026-04-01T14:59:00.000Z'
     },
@@ -190,6 +255,19 @@ export const deployments: IDeploymentResponse[] = [
         jobUrl: 'https://gitlab.example.com/acme/web-frontend/-/jobs/48190',
         commitUrl: 'https://gitlab.example.com/acme/prod-infra/-/commit/0badc0de',
         sourceCommitSha: '99887766',
+        targets: [
+            {
+                id: '018f0000-0000-7000-8000-000000000104',
+                clusterId: 2,
+                clusterName: 'staging',
+                helmType: 'flux',
+                helmNamespace: 'web',
+                helmName: 'web-frontend',
+                status: 'failed',
+                statusMessage: 'Timed out waiting for HelmRelease after 300s',
+                completedAt: '2026-03-28T11:45:30.000Z'
+            }
+        ],
         createdAt: '2026-03-28T11:40:00.000Z',
         updatedAt: '2026-03-28T11:45:30.000Z'
     }

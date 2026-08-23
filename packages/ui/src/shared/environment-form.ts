@@ -1,13 +1,17 @@
+export interface EnvironmentTargetForm {
+    clusterId: number;
+    helmType: 'flux' | 'plain';
+    helmNamespace: string | null;
+    helmName: string | null;
+}
+
 export interface EnvironmentForm {
     name: string;
     branch: string;
     iacId: number;
     iacPath: string;
     iacBranch: string | null;
-    clusterId: number;
-    helmType: 'flux' | 'plain';
-    helmNamespace: string | null;
-    helmName: string | null;
+    targets: EnvironmentTargetForm[];
 }
 
 export function blankEnvironment(): EnvironmentForm {
@@ -18,6 +22,12 @@ export function blankEnvironment(): EnvironmentForm {
         iacId: 0,
         iacPath: '',
         iacBranch: null,
+        targets: [blankEnvironmentTarget()]
+    };
+}
+
+export function blankEnvironmentTarget(): EnvironmentTargetForm {
+    return {
         clusterId: 0,
         helmType: 'flux',
         helmNamespace: null,
@@ -32,9 +42,11 @@ export function toEnvironmentForm(environment: EnvironmentForm): EnvironmentForm
         iacId: environment.iacId,
         iacPath: environment.iacPath,
         iacBranch: environment.iacBranch,
-        clusterId: environment.clusterId,
-        helmType: environment.helmType,
-        helmNamespace: environment.helmNamespace,
-        helmName: environment.helmName
+        targets: environment.targets.map(target => ({
+            clusterId: target.clusterId,
+            helmType: target.helmType,
+            helmNamespace: target.helmNamespace,
+            helmName: target.helmName
+        }))
     };
 }

@@ -3,8 +3,10 @@ import { createPersistedEntity, http, HttpBadRequestError, HttpBody, persistEnti
 import { UserAuthMiddleware } from '../accessories/auth-middleware.accessory';
 import { ApiController } from '../accessories/controller.accessory';
 import { Db } from '../database';
+import { AppEnvironmentTargetEntity } from '../entities/app-environment-target.entity';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { AppEntity } from '../entities/app.entity';
+import { DeploymentTargetEntity } from '../entities/deployment-target.entity';
 import { DeploymentEntity } from '../entities/deployment.entity';
 import { UserEntity } from '../entities/user.entity';
 import { AppAccessService } from '../services/app-access.service';
@@ -83,7 +85,8 @@ export class AppsController {
     async show(id: number, user: UserEntity): Promise<IAppDetailResponse> {
         const { app, visibleEnvironments, iacs, roles } = await this.appAccess.loadApp(user, id);
 
-        const clusters = await this.appAccess.clustersFor(visibleEnvironments);
+        const targetsByEnvironment = await this.appAccess.targetsFor(visibleEnvironments);
+        const clusters = await this.appAccess.clustersForTargets([...targetsByEnvironment.values()].flat());
         const manageByEnv = await this.appAccess.perEnvironmentManage(user, visibleEnvironments, iacs);
 
         return {
@@ -95,7 +98,9 @@ export class AppsController {
             canManage: roles.canManage,
             createdAt: app.createdAt,
             updatedAt: app.updatedAt,
-            environments: visibleEnvironments.map(env => toEnvironmentResponse(env, iacs, clusters, manageByEnv.get(env.id) ?? false))
+            environments: visibleEnvironments.map(env =>
+                toEnvironmentResponse(env, iacs, clusters, targetsByEnvironment, manageByEnv.get(env.id) ?? false)
+            )
         };
     }
 
@@ -103,10 +108,10 @@ export class AppsController {
     async create(body: HttpBody<IAppCreateInput>, user: UserEntity): Promise<IAppDetailResponse> {
         // You may only introduce an app into an IaC repo you could already change by hand.
         await this.appAccess.requireIacRole(user, body.environment.iacId, 'manage');
-        await this.appAccess.assertClusterExists(body.environment.clusterId);
 
         const repoUrl = normalizeRepoUrl(body.repoUrl);
         const environment = this.appAccess.normalizeEnvironmentInput(body.environment);
+        await this.appAccess.assertTargetClustersExist(environment.targets);
         await this.assertRepoUrlIsFree(repoUrl, null);
         await this.appAccess.assertEnvironmentTargetsAreFree(environment, null);
 
@@ -123,16 +128,30 @@ export class AppsController {
                 session
             );
 
-            await createPersistedEntity(
+            const createdEnvironment = await createPersistedEntity(
                 AppEnvironmentEntity,
                 {
                     appId: app.id,
-                    ...environment,
+                    ...this.toEnvironmentEntityInput(environment),
                     createdAt: new Date(),
                     updatedAt: new Date()
                 },
                 session
             );
+
+            const now = new Date();
+            for (const target of environment.targets) {
+                await createPersistedEntity(
+                    AppEnvironmentTargetEntity,
+                    {
+                        appEnvironmentId: createdEnvironment.id,
+                        ...target,
+                        createdAt: now,
+                        updatedAt: now
+                    },
+                    session
+                );
+            }
 
             return app.id;
         });
@@ -166,8 +185,23 @@ export class AppsController {
             const environmentIds = environments.map(env => env.id);
             if (environmentIds.length) {
                 // Deployments hang off environments, and nothing enforces that in the schema.
-                await session
+                const deployments = await session
                     .query(DeploymentEntity)
+                    .filter({ appEnvironmentId: { $in: environmentIds } })
+                    .find();
+                const deploymentIds = deployments.map(deployment => deployment.id);
+                if (deploymentIds.length) {
+                    await session
+                        .query(DeploymentTargetEntity)
+                        .filter({ deploymentId: { $in: deploymentIds } })
+                        .deleteMany();
+                    await session
+                        .query(DeploymentEntity)
+                        .filter({ id: { $in: deploymentIds } })
+                        .deleteMany();
+                }
+                await session
+                    .query(AppEnvironmentTargetEntity)
                     .filter({ appEnvironmentId: { $in: environmentIds } })
                     .deleteMany();
                 await session
@@ -187,5 +221,10 @@ export class AppsController {
         if (existing && existing.id !== excludeId) {
             throw new HttpBadRequestError(`An app already uses repository "${repoUrl}"`);
         }
+    }
+
+    private toEnvironmentEntityInput(environment: ReturnType<AppAccessService['normalizeEnvironmentInput']>) {
+        const { targets: _targets, ...entityInput } = environment;
+        return entityInput;
     }
 }

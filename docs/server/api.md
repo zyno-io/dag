@@ -121,13 +121,28 @@ interface DeploymentStatusEvent {
 }
 ```
 
+For multi-cluster deployments, the server also emits `target` events as each target changes:
+
+```typescript
+interface DeploymentTargetStatusEvent {
+    target: {
+        id: string;
+        clusterId: number;
+        clusterName: string;
+        status: 'pending' | 'monitoring' | 'deployed' | 'failed';
+        message: string;
+    };
+}
+```
+
 Where `DeploymentStatus` is one of: `pending`, `validating`, `pushing`, `pushed`, `monitoring`, `deployed`, `failed`.
 
 ### Behavior
 
 - Returns `404` if the deployment is not found
-- If the deployment is already in a terminal state (`deployed` or `failed`), sends one final event and closes the connection
+- If the deployment is already terminal (`deployed` or `failed`), sends its target snapshot, then one final parent event and closes the connection
 - Otherwise, sends the current status immediately, then streams updates as they occur
+- Replays the current state of every cluster target before the parent status frame
 - The connection closes automatically when a terminal status is reached
 
 ### Example

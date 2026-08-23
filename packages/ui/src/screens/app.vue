@@ -46,17 +46,16 @@
                                 <dt>IaC branch</dt>
                                 <dd>{{ env.iacBranch ?? 'default' }}</dd>
                             </div>
-                            <div>
-                                <dt>Cluster</dt>
-                                <dd>{{ env.clusterName }}</dd>
-                            </div>
-                            <div>
-                                <dt>Helm</dt>
-                                <dd>{{ env.helmType }}</dd>
-                            </div>
-                            <div>
-                                <dt>Release</dt>
-                                <dd>{{ env.helmName ?? '—' }} / {{ env.helmNamespace ?? '—' }}</dd>
+                            <div class="targets">
+                                <dt>Deployment targets</dt>
+                                <dd>
+                                    <ul>
+                                        <li v-for="target in env.targets" :key="target.id ?? `${target.clusterId}-${target.helmType}-${target.helmNamespace}-${target.helmName}`">
+                                            <strong>{{ target.clusterName }}</strong>
+                                            <span>{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }}</span>
+                                        </li>
+                                    </ul>
+                                </dd>
                             </div>
                         </dl>
                     </div>
@@ -319,6 +318,22 @@ section {
 
         dt {
             @apply text-xs uppercase tracking-wide text-neutral-500;
+        }
+
+        .targets {
+            @apply col-span-2 md:col-span-3;
+
+            ul {
+                @apply flex flex-col gap-1 mt-1 list-none p-0;
+            }
+
+            li {
+                @apply flex gap-2 text-sm;
+
+                span {
+                    @apply text-neutral-500;
+                }
+            }
         }
     }
 }

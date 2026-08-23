@@ -1,25 +1,26 @@
-import { createPersistedEntity, http, HttpBadRequestError, HttpBody, HttpNotFoundError, persistEntity } from '@zyno-io/ts-server-foundation';
+import { createPersistedEntity, DatabaseSession, http, HttpBadRequestError, HttpBody, HttpNotFoundError } from '@zyno-io/ts-server-foundation';
 
 import { UserAuthMiddleware } from '../accessories/auth-middleware.accessory';
 import { ApiController } from '../accessories/controller.accessory';
 import { Db } from '../database';
+import { AppEnvironmentTargetEntity } from '../entities/app-environment-target.entity';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
+import { DeploymentTargetEntity } from '../entities/deployment-target.entity';
 import { DeploymentEntity } from '../entities/deployment.entity';
 import { IacEntity } from '../entities/iac.entity';
 import { UserEntity } from '../entities/user.entity';
-import { AppAccessService } from '../services/app-access.service';
+import { AppAccessService, EnvironmentInput, EnvironmentTarget, NormalizedEnvironmentInput } from '../services/app-access.service';
 
-export interface IEnvironmentInput {
-    name: string;
-    branch: string;
-    iacId: number;
-    iacPath: string;
-    iacBranch: string | null;
+export type IEnvironmentInput = EnvironmentInput;
+
+export interface IEnvironmentTargetResponse {
+    id: number | null;
     clusterId: number;
+    clusterName: string;
     helmType: 'flux' | 'plain';
-    helmNamespace: string | null;
-    helmName: string | null;
+    helmNamespace: string;
+    helmName: string;
 }
 
 export interface IEnvironmentResponse {
@@ -31,11 +32,17 @@ export interface IEnvironmentResponse {
     iacName: string;
     iacPath: string;
     iacBranch: string | null;
+    /** @deprecated Use targets; these describe the first target for legacy API consumers. */
     clusterId: number;
+    /** @deprecated Use targets; these describe the first target for legacy API consumers. */
     clusterName: string;
+    /** @deprecated Use targets; these describe the first target for legacy API consumers. */
     helmType: 'flux' | 'plain';
+    /** @deprecated Use targets; these describe the first target for legacy API consumers. */
     helmNamespace: string | null;
+    /** @deprecated Use targets; these describe the first target for legacy API consumers. */
     helmName: string | null;
+    targets: IEnvironmentTargetResponse[];
     canManage: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -45,8 +52,19 @@ export function toEnvironmentResponse(
     environment: AppEnvironmentEntity,
     iacs: Map<number, IacEntity>,
     clusters: Map<number, ClusterEntity>,
+    targetsByEnvironment: Map<number, EnvironmentTarget[]>,
     canManage: boolean
 ): IEnvironmentResponse {
+    const targets = (targetsByEnvironment.get(environment.id) ?? []).map(target => ({
+        id: target.id,
+        clusterId: target.clusterId,
+        clusterName: clusters.get(target.clusterId)?.name ?? 'unknown',
+        helmType: target.helmType,
+        helmNamespace: target.helmNamespace,
+        helmName: target.helmName
+    }));
+    const primaryTarget = targets[0];
+
     return {
         id: environment.id,
         appId: environment.appId,
@@ -56,11 +74,12 @@ export function toEnvironmentResponse(
         iacName: iacs.get(environment.iacId)?.name ?? 'unknown',
         iacPath: environment.iacPath,
         iacBranch: environment.iacBranch,
-        clusterId: environment.clusterId,
-        clusterName: clusters.get(environment.clusterId)?.name ?? 'unknown',
-        helmType: environment.helmType,
-        helmNamespace: environment.helmNamespace,
-        helmName: environment.helmName,
+        clusterId: primaryTarget?.clusterId ?? environment.clusterId,
+        clusterName: primaryTarget?.clusterName ?? clusters.get(environment.clusterId)?.name ?? 'unknown',
+        helmType: primaryTarget?.helmType ?? environment.helmType,
+        helmNamespace: primaryTarget?.helmNamespace ?? environment.helmNamespace,
+        helmName: primaryTarget?.helmName ?? environment.helmName,
+        targets,
         canManage,
         createdAt: environment.createdAt,
         updatedAt: environment.updatedAt
@@ -78,9 +97,10 @@ export class EnvironmentsController {
     @http.GET()
     async index(appId: number, user: UserEntity): Promise<IEnvironmentResponse[]> {
         const { visibleEnvironments, iacs } = await this.appAccess.loadApp(user, appId);
-        const clusters = await this.appAccess.clustersFor(visibleEnvironments);
+        const targetsByEnvironment = await this.appAccess.targetsFor(visibleEnvironments);
+        const clusters = await this.appAccess.clustersForTargets([...targetsByEnvironment.values()].flat());
         const manageByEnv = await this.appAccess.perEnvironmentManage(user, visibleEnvironments, iacs);
-        return visibleEnvironments.map(env => toEnvironmentResponse(env, iacs, clusters, manageByEnv.get(env.id) ?? false));
+        return visibleEnvironments.map(env => toEnvironmentResponse(env, iacs, clusters, targetsByEnvironment, manageByEnv.get(env.id) ?? false));
     }
 
     @http.POST()
@@ -94,17 +114,26 @@ export class EnvironmentsController {
         // but not sufficient.
         this.appAccess.requireManage(roles, 'app');
         await this.appAccess.requireIacRole(user, body.iacId, 'manage');
-        await this.appAccess.assertClusterExists(body.clusterId);
 
         const input = this.appAccess.normalizeEnvironmentInput(body);
+        await this.appAccess.assertTargetClustersExist(input.targets);
         await this.assertNameIsFree(appId, input.branch, input.name, null);
         await this.appAccess.assertEnvironmentTargetsAreFree(input, null);
 
-        const environment = await createPersistedEntity(AppEnvironmentEntity, {
-            appId,
-            ...input,
-            createdAt: new Date(),
-            updatedAt: new Date()
+        const environment = await this.db.transaction(async session => {
+            const now = new Date();
+            const created = await createPersistedEntity(
+                AppEnvironmentEntity,
+                {
+                    appId,
+                    ...this.toEnvironmentEntityInput(input),
+                    createdAt: now,
+                    updatedAt: now
+                },
+                session
+            );
+            await this.createTargets(created.id, input, now, session);
+            return created;
         });
 
         return this.toResponse(environment, true);
@@ -121,17 +150,25 @@ export class EnvironmentsController {
         const currentIac = await this.appAccess.iacFor(environment);
         await this.appAccess.requireIacRole(user, currentIac.id, 'manage');
         await this.appAccess.requireIacRole(user, body.iacId, 'manage');
-        await this.appAccess.assertClusterExists(body.clusterId);
 
         const input = this.appAccess.normalizeEnvironmentInput(body);
+        await this.appAccess.assertTargetClustersExist(input.targets);
         await this.assertNameIsFree(appId, input.branch, input.name, id);
         await this.appAccess.assertEnvironmentTargetsAreFree(input, id);
 
-        Object.assign(environment, input);
-        environment.updatedAt = new Date();
-        await persistEntity(environment);
+        await this.db.transaction(async session => {
+            const now = new Date();
+            await session
+                .query(AppEnvironmentEntity)
+                .filter({ id: environment.id })
+                .patchOne({ ...this.toEnvironmentEntityInput(input), updatedAt: now });
+            await session.query(AppEnvironmentTargetEntity).filter({ appEnvironmentId: environment.id }).deleteMany();
+            await this.createTargets(environment.id, input, now, session);
+        });
 
-        return this.toResponse(environment, true);
+        const updated = await this.load(appId, id);
+
+        return this.toResponse(updated, true);
     }
 
     @http.DELETE(':id')
@@ -149,7 +186,19 @@ export class EnvironmentsController {
         }
 
         await this.db.transaction(async session => {
-            await session.query(DeploymentEntity).filter({ appEnvironmentId: id }).deleteMany();
+            const deployments = await session.query(DeploymentEntity).filter({ appEnvironmentId: id }).find();
+            const deploymentIds = deployments.map(deployment => deployment.id);
+            if (deploymentIds.length) {
+                await session
+                    .query(DeploymentTargetEntity)
+                    .filter({ deploymentId: { $in: deploymentIds } })
+                    .deleteMany();
+                await session
+                    .query(DeploymentEntity)
+                    .filter({ id: { $in: deploymentIds } })
+                    .deleteMany();
+            }
+            await session.query(AppEnvironmentTargetEntity).filter({ appEnvironmentId: id }).deleteMany();
             await session.query(AppEnvironmentEntity).filter({ id }).deleteMany();
         });
 
@@ -172,7 +221,28 @@ export class EnvironmentsController {
 
     private async toResponse(environment: AppEnvironmentEntity, canManage: boolean): Promise<IEnvironmentResponse> {
         const iacs = await this.appAccess.iacsFor([environment]);
-        const clusters = await this.appAccess.clustersFor([environment]);
-        return toEnvironmentResponse(environment, iacs, clusters, canManage);
+        const targetsByEnvironment = await this.appAccess.targetsFor([environment]);
+        const clusters = await this.appAccess.clustersForTargets([...targetsByEnvironment.values()].flat());
+        return toEnvironmentResponse(environment, iacs, clusters, targetsByEnvironment, canManage);
+    }
+
+    private toEnvironmentEntityInput(input: NormalizedEnvironmentInput) {
+        const { targets: _targets, ...entityInput } = input;
+        return entityInput;
+    }
+
+    private async createTargets(environmentId: number, input: NormalizedEnvironmentInput, now: Date, session: DatabaseSession): Promise<void> {
+        for (const target of input.targets) {
+            await createPersistedEntity(
+                AppEnvironmentTargetEntity,
+                {
+                    appEnvironmentId: environmentId,
+                    ...target,
+                    createdAt: now,
+                    updatedAt: now
+                },
+                session
+            );
+        }
     }
 }

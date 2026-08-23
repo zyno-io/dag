@@ -40,42 +40,57 @@
             </label>
         </div>
 
-        <label>
-            Cluster
-            <VfSmartSelect
-                v-model="model.clusterId"
-                :options="clusters"
-                :key-field="'id'"
-                :value-field="'id'"
-                :label-field="'name'"
-                :search-fields="['name', 'apiUrl']"
-                placeholder="Select a cluster..."
-                required
-            />
-        </label>
+        <div class="targets-header">
+            <div>
+                <label>Deployment targets</label>
+                <span class="hint">Every target is monitored independently; the deployment succeeds only when all of them succeed.</span>
+            </div>
+            <button type="button" @click="addTarget">Add cluster</button>
+        </div>
 
-        <div class="row">
+        <div v-for="(target, index) in model.targets" :key="index" class="target">
+            <div class="target-header">
+                <strong>Target {{ index + 1 }}</strong>
+                <button v-if="model.targets.length > 1" type="button" class="danger" @click="removeTarget(index)">Remove</button>
+            </div>
+
             <label>
-                Helm type
+                Cluster
                 <VfSmartSelect
-                    v-model="model.helmType"
-                    :options="HELM_TYPE_OPTIONS"
-                    :key-field="'value'"
-                    :value-field="'value'"
-                    :label-field="'label'"
+                    v-model="target.clusterId"
+                    :options="clusters"
+                    :key-field="'id'"
+                    :value-field="'id'"
+                    :label-field="'name'"
+                    :search-fields="['name', 'apiUrl']"
+                    placeholder="Select a cluster..."
                     required
                 />
             </label>
 
-            <label>
-                Helm release name
-                <input :value="model.helmName ?? ''" type="text" placeholder="my-service" @input="setNullable('helmName', $event)" />
-            </label>
+            <div class="row">
+                <label>
+                    Helm type
+                    <VfSmartSelect
+                        v-model="target.helmType"
+                        :options="HELM_TYPE_OPTIONS"
+                        :key-field="'value'"
+                        :value-field="'value'"
+                        :label-field="'label'"
+                        required
+                    />
+                </label>
 
-            <label>
-                Namespace
-                <input :value="model.helmNamespace ?? ''" type="text" placeholder="default" @input="setNullable('helmNamespace', $event)" />
-            </label>
+                <label>
+                    Helm release name
+                    <input :value="target.helmName ?? ''" type="text" placeholder="my-service" @input="setTargetNullable(index, 'helmName', $event)" />
+                </label>
+
+                <label>
+                    Namespace
+                    <input :value="target.helmNamespace ?? ''" type="text" placeholder="default" @input="setTargetNullable(index, 'helmNamespace', $event)" />
+                </label>
+            </div>
         </div>
     </div>
 </template>
@@ -84,9 +99,9 @@
 import { VfSmartSelect } from '@zyno-io/vue-foundation';
 
 import type { IClusterResponse, IIacResponse } from '@/openapi-client-generated';
-import type { EnvironmentForm } from '@/shared/environment-form';
+import { blankEnvironmentTarget, type EnvironmentForm, type EnvironmentTargetForm } from '@/shared/environment-form';
 
-const HELM_TYPE_OPTIONS: { value: EnvironmentForm['helmType']; label: string }[] = [
+const HELM_TYPE_OPTIONS: { value: EnvironmentTargetForm['helmType']; label: string }[] = [
     { value: 'flux', label: 'Flux (HelmRelease)' },
     { value: 'plain', label: 'Plain Helm' }
 ];
@@ -99,9 +114,22 @@ defineProps<{
 const model = defineModel<EnvironmentForm>({ required: true });
 
 /** These columns are nullable server-side; an empty input means "unset", not "empty string". */
-function setNullable(field: 'iacBranch' | 'helmName' | 'helmNamespace', event: Event) {
+function setNullable(field: 'iacBranch', event: Event) {
     const value = (event.target as HTMLInputElement).value.trim();
     model.value[field] = value || null;
+}
+
+function addTarget() {
+    model.value.targets.push(blankEnvironmentTarget());
+}
+
+function removeTarget(index: number) {
+    model.value.targets.splice(index, 1);
+}
+
+function setTargetNullable(index: number, field: 'helmName' | 'helmNamespace', event: Event) {
+    const value = (event.target as HTMLInputElement).value.trim();
+    model.value.targets[index][field] = value || null;
 }
 </script>
 
@@ -118,6 +146,19 @@ function setNullable(field: 'iacBranch' | 'helmName' | 'helmNamespace', event: E
     > label {
         @apply flex-1 min-w-0;
     }
+}
+
+.targets-header,
+.target-header {
+    @apply flex items-start justify-between gap-3;
+}
+
+.targets-header {
+    @apply mt-1;
+}
+
+.target {
+    @apply flex flex-col gap-3 p-3 border border-neutral-500/25 rounded-lg;
 }
 
 .hint {
