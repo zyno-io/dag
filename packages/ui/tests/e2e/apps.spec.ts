@@ -53,6 +53,7 @@ test('apps — add app modal', async ({ page }) => {
 
     await expect(page.locator('.vf-modal')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Add app' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add target' })).toBeVisible();
     await page.waitForTimeout(300);
 
     const path = `${SCREENSHOTS_DIR}/apps-add-modal.png`;

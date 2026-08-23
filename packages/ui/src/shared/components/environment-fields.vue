@@ -45,7 +45,7 @@
                 <label>Deployment targets</label>
                 <span class="hint">Every target is monitored independently; the deployment succeeds only when all of them succeed.</span>
             </div>
-            <button type="button" @click="addTarget">Add cluster</button>
+            <button type="button" @click="addTarget">Add target</button>
         </div>
 
         <div v-for="(target, index) in model.targets" :key="index" class="target">
