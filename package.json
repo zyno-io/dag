@@ -1,6 +1,6 @@
 {
     "name": "@zyno-io/dag-root",
-    "version": "0.5.3",
+    "version": "0.6.0",
     "private": true,
     "license": "MIT",
     "author": "Zyno Consulting <support@zyno.io>",
@@ -29,8 +29,8 @@
     },
     "devDependencies": {
         "lefthook": "^2.1.10",
-        "oxfmt": "^0.62.0",
-        "oxlint": "^1.77.0",
+        "oxfmt": "^0.64.0",
+        "oxlint": "^1.79.0",
         "vitepress": "^1.6.4"
     },
     "resolutions": {
