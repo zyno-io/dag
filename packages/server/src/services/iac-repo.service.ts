@@ -35,7 +35,13 @@ export class IacRepoService {
 
         const accessToken = await decryptField(iac, 'accessToken');
         const basicAuth = Buffer.from(`token:${accessToken}`).toString('base64');
-        return simpleGit(baseDir).env({
+        return simpleGit(baseDir, {
+            unsafe: {
+                // Authentication and commit identity are intentionally supplied via
+                // GIT_CONFIG_* so the token is never written to the local repo.
+                allowUnsafeConfigEnvCount: true
+            }
+        }).env({
             GIT_CONFIG_COUNT: '3',
             GIT_CONFIG_KEY_0: 'http.extraHeader',
             GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicAuth}`,
