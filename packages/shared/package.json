@@ -9,8 +9,8 @@
         "clean": "rm -rf dist"
     },
     "devDependencies": {
-        "@zyno-io/ts-server-foundation": "26.822.148",
-        "ttsc": "^0.28.1",
+        "@zyno-io/ts-server-foundation": "26.917.1736",
+        "ttsc": "0.30.1",
         "typescript": "^7.0.2"
     },
     "dependenciesMeta": {

@@ -7,7 +7,7 @@
         "moduleResolution": "nodenext",
         "target": "ESNext",
         "module": "NodeNext",
-        "preserveSymlinks": true,
+        "preserveSymlinks": false,
         "esModuleInterop": true,
         "types": ["node"],
         "rootDir": "./src",
