@@ -15,6 +15,8 @@ export class DeploymentTargetEntity extends BaseEntity {
     helmType!: 'flux' | 'plain';
     helmNamespace!: string;
     helmName!: string;
+    /** Resolved rollout budget, pinned along with the destination at queue time. */
+    monitorTimeoutSecs!: number;
     status: ('pending' | 'monitoring' | 'deployed' | 'failed') & HasDefault = 'pending';
     statusMessage!: string | null;
     completedAt!: Date | null;

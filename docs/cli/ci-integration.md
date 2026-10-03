@@ -148,7 +148,7 @@ Instead of CLI flags, you can set environment variables. This is useful for conf
 | `DAG_JOB_TOKEN`      | Override auto-detected job token                                |
 | `DAG_ENVIRONMENT`    | Target environment name when a branch has multiple environments |
 | `DAG_DEPLOY_VERSION` | Deployment version                                              |
-| `DAG_TIMEOUT`        | Client-side timeout for waiting on deployment status (seconds)  |
+| `DAG_TIMEOUT`        | Deprecated; accepted and ignored                                |
 
 ## Using the Docker Image
 

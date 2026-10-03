@@ -227,6 +227,7 @@ export class DeploymentService {
                 id: target.id,
                 clusterId: target.clusterId,
                 clusterName: target.clusterName,
+                monitorTimeoutSecs: target.monitorTimeoutSecs,
                 status,
                 message
             }

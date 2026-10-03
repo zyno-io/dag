@@ -1,4 +1,10 @@
 import {
+    DEPLOYMENT_HEARTBEAT_INTERVAL_MS,
+    DeploymentStatusEvent,
+    DeploymentTargetStatusEvent,
+    isValidDeployMonitorTimeout
+} from '@zyno-io/dag-shared';
+import {
     createPersistedEntity,
     FileUpload,
     http,
@@ -12,6 +18,7 @@ import {
 } from '@zyno-io/ts-server-foundation';
 import * as fs from 'node:fs/promises';
 
+import { AppConfig } from '../config';
 import { Db } from '../database';
 import { AppEnvironmentEntity } from '../entities/app-environment.entity';
 import { ClusterEntity } from '../entities/cluster.entity';
@@ -21,7 +28,7 @@ import { IacEntity } from '../entities/iac.entity';
 import { AppAccessService } from '../services/app-access.service';
 import { AppAuthService } from '../services/app-auth.service';
 import { DeploymentLifecycleListener } from '../services/deployment-lifecycle.listener';
-import { DeploymentService, buildCommitUrl, getDeploymentChannel } from '../services/deployment.service';
+import { DeploymentEvent, DeploymentService, buildCommitUrl, getDeploymentChannel } from '../services/deployment.service';
 
 interface DeployBody {
     repoUrl: string;
@@ -40,7 +47,8 @@ export class DeployController {
         private appAuthService: AppAuthService,
         private deploymentLifecycle: DeploymentLifecycleListener,
         private deploymentService: DeploymentService,
-        private logger: ScopedLogger
+        private logger: ScopedLogger,
+        private config: AppConfig
     ) {}
 
     @http.POST('deploy')
@@ -60,6 +68,15 @@ export class DeployController {
         // to the exact clusters and Helm resources selected at submission time.
         const targetsByEnvironment = await this.appAccess.targetsFor([appEnvironment]);
         const environmentTargets = targetsByEnvironment.get(appEnvironment.id) ?? [];
+        const targets = environmentTargets.map(target => {
+            const monitorTimeoutSecs = target.monitorTimeoutSecs ?? this.config.DEPLOY_MONITOR_TIMEOUT_SECS;
+            if (!isValidDeployMonitorTimeout(monitorTimeoutSecs)) {
+                throw new HttpBadRequestError(
+                    'Deployment target monitor timeout must be a positive whole number of seconds within the supported range'
+                );
+            }
+            return { ...target, monitorTimeoutSecs };
+        });
         const clusterIds = [...new Set(environmentTargets.map(target => target.clusterId))];
         const clusters = await ClusterEntity.query()
             .filter({ id: { $in: clusterIds } })
@@ -87,7 +104,7 @@ export class DeployController {
                 session
             );
 
-            for (const target of environmentTargets) {
+            for (const target of targets) {
                 const cluster = clustersById.get(target.clusterId)!;
                 await createPersistedEntity(
                     DeploymentTargetEntity,
@@ -100,6 +117,7 @@ export class DeployController {
                         helmType: target.helmType,
                         helmNamespace: target.helmNamespace,
                         helmName: target.helmName,
+                        monitorTimeoutSecs: target.monitorTimeoutSecs,
                         statusMessage: null,
                         completedAt: null,
                         createdAt: now,
@@ -124,97 +142,97 @@ export class DeployController {
     }
 
     @http.GET('deployments/:id/events')
-    async events(id: HttpPath<string>, request: HttpRequest, response: HttpResponse): Promise<void> {
+    async events(id: HttpPath<string>, _request: HttpRequest, response: HttpResponse): Promise<void> {
         // Set SSE headers
         response.setHeader('Content-Type', 'text/event-stream');
         response.setHeader('Cache-Control', 'no-cache');
         response.setHeader('Connection', 'keep-alive');
         response.setHeader('X-Accel-Buffering', 'no');
 
-        // Verify deployment exists
-        const deployment = await DeploymentEntity.query().filterField('id', id).findOneOrUndefined();
-
-        if (!deployment) {
-            response.writeHead(404);
-            response.end();
-            return;
-        }
-
-        // Resolve commit URL if a commit SHA exists on this deployment
-        let commitUrl: string | undefined;
-        if (deployment.commitSha) {
-            const appEnv = await AppEnvironmentEntity.query().filterField('id', deployment.appEnvironmentId).findOneOrUndefined();
-            if (appEnv) {
-                const iac = await IacEntity.query().filterField('id', appEnv.iacId).findOneOrUndefined();
-                if (iac) {
-                    commitUrl = buildCommitUrl(iac.repoUrl, deployment.commitSha);
-                }
-            }
-        }
-
-        // Send a target snapshot before the parent status so reconnecting clients can recover
-        // per-cluster progress even if they missed earlier live events.
-        const targets = await DeploymentTargetEntity.query().filterField('deploymentId', deployment.id).find();
-        for (const target of targets) {
-            const targetEvent = {
-                target: {
-                    id: target.id,
-                    clusterId: target.clusterId,
-                    clusterName: target.clusterName,
-                    status: target.status,
-                    message: target.statusMessage ?? ''
-                }
-            };
-            response.write(`event: target\ndata: ${JSON.stringify(targetEvent)}\n\n`);
-        }
-
-        // If already in a terminal state, send the full target snapshot followed by the final
-        // parent event and close.
-        if (deployment.status === 'deployed' || deployment.status === 'failed') {
-            const event: Record<string, unknown> = { status: deployment.status, message: deployment.statusMessage ?? '' };
-            if (commitUrl) event.commitUrl = commitUrl;
-            const data = JSON.stringify(event);
-            response.write(`event: status\ndata: ${data}\n\n`);
-            response.end();
-            return;
-        }
-
-        // Send current status
-        const currentEvent: Record<string, unknown> = { status: deployment.status, message: deployment.statusMessage ?? '' };
-        if (commitUrl) currentEvent.commitUrl = commitUrl;
-        const currentData = JSON.stringify(currentEvent);
-        response.write(`event: status\ndata: ${currentData}\n\n`);
-
-        // Subscribe to local event channel for updates
+        // Subscribe before asynchronous snapshot reads so a terminal update cannot be lost
+        // between reading the deployment and opening the live stream.
         const channel = getDeploymentChannel(id);
-
-        // Send periodic heartbeat comments to prevent proxy/LB timeouts
-        const heartbeat = setInterval(() => {
-            response.write('event: heartbeat\ndata: {}\n\n');
-        }, 15_000);
-
+        const pendingEvents: DeploymentEvent[] = [];
+        let snapshotSent = false;
+        let closed = false;
+        let heartbeat: ReturnType<typeof setInterval> | undefined;
         const cleanup = () => {
+            closed = true;
             unsubscribe();
             clearInterval(heartbeat);
+            response.off('close', cleanup);
         };
-
-        const unsubscribe = channel.subscribe(event => {
-            if ('target' in event) {
-                response.write(`event: target\ndata: ${JSON.stringify(event)}\n\n`);
-                return;
-            }
-
-            const data = JSON.stringify(event);
-            response.write(`event: status\ndata: ${data}\n\n`);
-
-            // Close on terminal events
-            if (event.status === 'deployed' || event.status === 'failed') {
+        const writeEvent = (event: DeploymentEvent) => {
+            if (closed) return;
+            const type = 'target' in event ? 'target' : 'status';
+            response.write(`event: ${type}\ndata: ${JSON.stringify(event)}\n\n`);
+            if ('status' in event && (event.status === 'deployed' || event.status === 'failed')) {
                 cleanup();
                 response.end();
             }
+        };
+        const unsubscribe = channel.subscribe(event => {
+            if (snapshotSent) writeEvent(event);
+            else pendingEvents.push(event);
         });
+        response.on('close', cleanup);
 
-        // Clean up on client disconnect
-        request.on('close', cleanup);
+        try {
+            // Verify deployment exists
+            const deployment = await DeploymentEntity.query().filterField('id', id).findOneOrUndefined();
+
+            if (!deployment) {
+                cleanup();
+                response.writeHead(404);
+                response.end();
+                return;
+            }
+            if (closed) return;
+            heartbeat = setInterval(() => {
+                response.write('event: heartbeat\ndata: {}\n\n');
+            }, DEPLOYMENT_HEARTBEAT_INTERVAL_MS);
+
+            // Resolve commit URL if a commit SHA exists on this deployment
+            let commitUrl: string | undefined;
+            if (deployment.commitSha) {
+                const appEnv = await AppEnvironmentEntity.query().filterField('id', deployment.appEnvironmentId).findOneOrUndefined();
+                if (appEnv) {
+                    const iac = await IacEntity.query().filterField('id', appEnv.iacId).findOneOrUndefined();
+                    if (iac) {
+                        commitUrl = buildCommitUrl(iac.repoUrl, deployment.commitSha);
+                    }
+                }
+            }
+
+            // Send a target snapshot before the parent status so reconnecting clients can recover
+            // per-cluster progress even if they missed earlier live events.
+            const targets = await DeploymentTargetEntity.query().filterField('deploymentId', deployment.id).find();
+            if (closed) return;
+            for (const target of targets) {
+                const targetEvent: DeploymentTargetStatusEvent = {
+                    target: {
+                        id: target.id,
+                        clusterId: target.clusterId,
+                        clusterName: target.clusterName,
+                        monitorTimeoutSecs: target.monitorTimeoutSecs,
+                        status: target.status,
+                        message: target.statusMessage ?? ''
+                    }
+                };
+                writeEvent(targetEvent);
+            }
+
+            // Send the current parent status after the target snapshot. A terminal snapshot
+            // closes the stream; otherwise flush updates captured during the database reads.
+            const currentEvent: DeploymentStatusEvent = { status: deployment.status, message: deployment.statusMessage ?? '' };
+            if (commitUrl) currentEvent.commitUrl = commitUrl;
+            writeEvent(currentEvent);
+            if (closed) return;
+            snapshotSent = true;
+            for (const event of pendingEvents) writeEvent(event);
+        } catch (err) {
+            cleanup();
+            throw err;
+        }
     }
 }

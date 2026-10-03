@@ -118,7 +118,8 @@ const environments: IEnvironmentResponse[] = [
                 clusterName: 'prod-eu',
                 helmType: 'flux',
                 helmNamespace: 'checkout',
-                helmName: 'checkout-service'
+                helmName: 'checkout-service',
+                monitorTimeoutSecs: null
             },
             {
                 id: 2,
@@ -126,7 +127,8 @@ const environments: IEnvironmentResponse[] = [
                 clusterName: 'prod-us',
                 helmType: 'flux',
                 helmNamespace: 'checkout',
-                helmName: 'checkout-service'
+                helmName: 'checkout-service',
+                monitorTimeoutSecs: null
             }
         ],
         canManage: true,
@@ -154,7 +156,8 @@ const environments: IEnvironmentResponse[] = [
                 clusterName: 'staging',
                 helmType: 'plain',
                 helmNamespace: 'checkout-staging',
-                helmName: 'checkout-service'
+                helmName: 'checkout-service',
+                monitorTimeoutSecs: null
             }
         ],
         // Read-only on staging-infra, so this environment's edit controls stay hidden.
@@ -192,6 +195,7 @@ export const deployments: IDeploymentResponse[] = [
                 helmType: 'flux',
                 helmNamespace: 'checkout',
                 helmName: 'checkout-service',
+                monitorTimeoutSecs: 28800,
                 status: 'deployed',
                 statusMessage: 'HelmRelease reconciled successfully',
                 completedAt: '2026-03-30T18:21:00.000Z'
@@ -203,6 +207,7 @@ export const deployments: IDeploymentResponse[] = [
                 helmType: 'flux',
                 helmNamespace: 'checkout',
                 helmName: 'checkout-service',
+                monitorTimeoutSecs: 28800,
                 status: 'deployed',
                 statusMessage: 'HelmRelease reconciled successfully',
                 completedAt: '2026-03-30T18:21:00.000Z'

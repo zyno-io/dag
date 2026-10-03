@@ -26,7 +26,7 @@ If a directory is provided, it will be packaged into a `.tgz` tarball automatica
 | `--job-token <token>`        | `DAG_JOB_TOKEN`      | auto-detected | Override the CI job token                                       |
 | `--environment <name>`       | `DAG_ENVIRONMENT`    | —             | Target environment name when a branch has multiple environments |
 | `--deploy-version <version>` | `DAG_DEPLOY_VERSION` | —             | Deployment version **(required)**                               |
-| `--timeout <seconds>`        | `DAG_TIMEOUT`        | `300`         | Client-side timeout for waiting on deployment status (seconds)  |
+| `--timeout <seconds>`        | `DAG_TIMEOUT`        | —             | Deprecated; accepted and ignored for migration compatibility    |
 | `--values-file <path>`       | —                    | —             | YAML file to deep-merge into the chart's base `values.yaml`     |
 | `--set <key=value>`          | —                    | —             | Set a dotted path to a literal string value (repeatable)        |
 | `--set-json <key=json>`      | —                    | —             | Set a dotted path to a JSON-parsed value (repeatable)           |
@@ -37,11 +37,12 @@ If a directory is provided, it will be packaged into a `.tgz` tarball automatica
 When running in a CI environment, `dag-deploy` automatically detects the repo URL, job ID, and job token from environment variables:
 
 **GitLab CI** (detected via `GITLAB_CI`):
-| Value | Source |
-|-------|--------|
-| Repo URL | `CI_PROJECT_URL` |
-| Job ID | `CI_JOB_ID` |
-| Job Token | `CI_JOB_TOKEN` |
+
+| Value     | Source           |
+| --------- | ---------------- |
+| Repo URL  | `CI_PROJECT_URL` |
+| Job ID    | `CI_JOB_ID`      |
+| Job Token | `CI_JOB_TOKEN`   |
 
 **GitHub Actions** (detected via `GITHUB_ACTIONS`):
 
@@ -54,6 +55,14 @@ Server-side GitHub job token verification is not yet implemented. GitHub Actions
 | Repo URL  | `GITHUB_SERVER_URL/GITHUB_REPOSITORY`     |
 | Job ID    | `GITHUB_RUN_ID`                           |
 | Job Token | `GITHUB_TOKEN` or `ACTIONS_RUNTIME_TOKEN` |
+
+## Waiting and Connection Timeouts
+
+The CLI has no total deployment-duration deadline. It waits for DAG's terminal `deployed` or `failed` result as long as the server responds. DAG emits a heartbeat every 15 seconds, including periods without rollout progress. Any status, target, or heartbeat event resets the CLI's 30-second inactivity watchdog.
+
+HTTP submission, including its response body, must complete within 30 seconds. Connecting to the event stream and waiting for the next event are also bounded to 30 seconds. A lost or silent stream exits with a connection error and an unknown deployment outcome; it does not mark the server's deployment as failed. Check the deployment in DAG before retrying a submission with an unknown outcome.
+
+Configure rollout budgets on each environment target in DAG. Existing jobs may continue passing `--timeout 28800` or `DAG_TIMEOUT`; these settings print a deprecation warning and apply no deadline.
 
 ## Exit Codes
 

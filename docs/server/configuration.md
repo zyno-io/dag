@@ -9,7 +9,7 @@
 | `APP_ENV`                     | `string` | —          | Application environment (e.g. `production`)                              |
 | `PORT`                        | `number` | `3000`     | HTTP server port                                                         |
 | `DATA_DIR`                    | `string` | `/tmp/dag` | Directory for staged charts and cloned IAC repos (rarely needs changing) |
-| `DEPLOY_MONITOR_TIMEOUT_SECS` | `number` | `300`      | Timeout (seconds) for monitoring Kubernetes deployments                  |
+| `DEPLOY_MONITOR_TIMEOUT_SECS` | `number` | `300`      | Default rollout budget (seconds) for targets without an override         |
 
 ### PostgreSQL
 
@@ -79,3 +79,15 @@ Map an app's branch and environment name to a specific IaC repo path and one or 
 | `iacBranch` | `string \| null` | IAC repo branch (null = default branch) |
 
 Each environment has a non-empty `targets` list. A target contains `clusterId`, `helmType`, `helmNamespace` (default `default`), and `helmName` (default chart basename). DAG pushes the chart once to the environment's IaC path, then monitors every target concurrently. A deployment succeeds only when every target reports a successful Helm install or HelmRelease reconciliation.
+
+### Target Rollout Budgets
+
+Set `monitorTimeoutSecs` on each environment target through the environment editor or the environment create/update API's `targets` array. It must be a whole number from 1 through 2147483647 seconds. Null or omitted uses `DEPLOY_MONITOR_TIMEOUT_SECS` (default 300 seconds). This setting remains managed by the environment's IaC repository owners.
+
+At submission, DAG resolves each target's budget and persists it alongside the immutable Helm destination in the deployment target snapshot. Later target edits or server-default changes do not alter an in-flight deployment. Each monitor uses its own budget across both revision detection and rollout readiness, starting when that monitor begins polling after the chart is pushed. DAG waits for every target to finish before reporting the aggregate result.
+
+Kubernetes polling requests are cancelled after 30 seconds, or sooner when the target's remaining budget expires. Transient request errors are retried within that same budget.
+
+For an edge target whose HelmRelease allows eight hours, set `monitorTimeoutSecs` to `28800` or a larger budget that also allows time for Flux to detect the new revision. Other targets can retain shorter budgets. This controls DAG monitoring; it does not change the HelmRelease's own timeout.
+
+The migration leaves existing environment targets on the server default. Historical deployment target snapshots are backfilled with the previous built-in 300-second budget; their original custom server setting was not recorded. New snapshots always store the resolved budget explicitly.

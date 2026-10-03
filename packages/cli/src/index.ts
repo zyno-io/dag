@@ -28,7 +28,7 @@ program
     .option('--job-token <token>', 'Override auto-detected job token (env: DAG_JOB_TOKEN)')
     .option('--environment <name>', 'Target DAG environment name (env: DAG_ENVIRONMENT)')
     .option('--deploy-version <version>', 'Deployment version (env: DAG_DEPLOY_VERSION)')
-    .option('--timeout <seconds>', 'Deployment timeout in seconds (env: DAG_TIMEOUT)', '300')
+    .option('--timeout <seconds>', 'Deprecated and ignored (env: DAG_TIMEOUT); configure rollout timeouts on DAG targets')
     .option('--values-file <path>', 'YAML file to merge into the chart values.yaml')
     .option('--set <key=value>', 'Set a dotted path to a literal string value (repeatable)', collectKeyValue, [])
     .option('--set-json <key=json>', 'Set a dotted path to a JSON-parsed value (repeatable)', collectKeyValue, [])
@@ -63,9 +63,8 @@ program
             }
             const environment = (options.environment as string | undefined) || process.env.DAG_ENVIRONMENT;
 
-            const timeout = parseInt((options.timeout as string | undefined) || process.env.DAG_TIMEOUT || '300', 10);
-            if (!Number.isFinite(timeout) || timeout <= 0) {
-                throw new Error('Timeout must be a positive number of seconds.');
+            if (options.timeout !== undefined || process.env.DAG_TIMEOUT !== undefined) {
+                console.warn('Warning: --timeout/DAG_TIMEOUT is deprecated and ignored. Configure rollout timeouts on DAG deployment targets.');
             }
 
             // Apply values overrides if any
@@ -163,15 +162,13 @@ program
                 jobToken,
                 environment,
                 version,
-                chartBuffer,
-                timeout
+                chartBuffer
             });
 
             // Stream events
             const finalEvent = await streamDeploymentEvents(
                 serverUrl,
                 deploymentId,
-                timeout,
                 event => display.update(event),
                 event => display.updateTarget(event)
             );

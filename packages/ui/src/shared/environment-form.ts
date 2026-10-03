@@ -3,6 +3,7 @@ export interface EnvironmentTargetForm {
     helmType: 'flux' | 'plain';
     helmNamespace: string | null;
     helmName: string | null;
+    monitorTimeoutSecs: number | null;
 }
 
 export interface EnvironmentForm {
@@ -31,7 +32,8 @@ export function blankEnvironmentTarget(): EnvironmentTargetForm {
         clusterId: 0,
         helmType: 'flux',
         helmNamespace: null,
-        helmName: null
+        helmName: null,
+        monitorTimeoutSecs: null
     };
 }
 
@@ -46,7 +48,8 @@ export function toEnvironmentForm(environment: EnvironmentForm): EnvironmentForm
             clusterId: target.clusterId,
             helmType: target.helmType,
             helmNamespace: target.helmNamespace,
-            helmName: target.helmName
+            helmName: target.helmName,
+            monitorTimeoutSecs: target.monitorTimeoutSecs
         }))
     };
 }

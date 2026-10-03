@@ -171,6 +171,38 @@ function environmentBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe('GitLab-derived permissions', () => {
+    it('persists and edits a target rollout budget through the environment API', async () => {
+        const target = { clusterId, helmType: 'flux', helmNamespace: 'staging', helmName: 'custom-timeout', monitorTimeoutSecs: 28800 };
+        const body = environmentBody({ iacPath: 'charts/custom-timeout', targets: [target] });
+        const created = await TestingHelpers.makeMockRequest(tf, 'POST', `/api/apps/${appId}/environments`, auth('gl-maintainer'), body);
+        assert.equal(created.statusCode, 200);
+        const environment = JSON.parse(created.bodyString);
+        assert.equal(environment.targets[0].monitorTimeoutSecs, 28800);
+        const updated = await TestingHelpers.makeMockRequest(tf, 'PUT', `/api/apps/${appId}/environments/${environment.id}`, auth('gl-maintainer'), {
+            ...body,
+            targets: [{ ...target, monitorTimeoutSecs: 600 }]
+        });
+        assert.equal(updated.statusCode, 200);
+        const response = await TestingHelpers.makeMockRequest(tf, 'GET', `/api/apps/${appId}/environments`, auth('gl-maintainer'));
+        const reloaded = JSON.parse(response.bodyString).find((value: { id: number }) => value.id === environment.id);
+        assert.equal(reloaded.targets[0].monitorTimeoutSecs, 600);
+    });
+
+    it('rejects invalid rollout budgets through the environment API', async () => {
+        for (const monitorTimeoutSecs of [0, -1, 1.5, 2147483648]) {
+            const response = await TestingHelpers.makeMockRequest(
+                tf,
+                'POST',
+                `/api/apps/${appId}/environments`,
+                auth('gl-maintainer'),
+                environmentBody({
+                    targets: [{ clusterId, helmType: 'flux', helmNamespace: 'staging', helmName: 'custom-timeout', monitorTimeoutSecs }]
+                })
+            );
+            assert.equal(response.statusCode, 400);
+        }
+    });
+
     it('rejects unauthenticated requests', async () => {
         const response = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', {});
         assert.equal(response.statusCode, 401);

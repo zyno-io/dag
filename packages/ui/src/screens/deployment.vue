@@ -55,7 +55,10 @@
                     <div v-for="target in deployment.targets" :key="target.id" class="target">
                         <div>
                             <strong>{{ target.clusterName }}</strong>
-                            <span>{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }}</span>
+                            <span
+                                >{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }} · {{ target.monitorTimeoutSecs }}s
+                                timeout</span
+                            >
                         </div>
                         <div class="target-status">
                             <StatusChip :status="target.status" />
@@ -83,13 +86,15 @@
 </template>
 
 <script lang="ts" setup>
+import type { DeploymentStatusEvent as StatusEvent, DeploymentTargetStatusEvent as TargetStatusEvent } from '@zyno-io/dag-shared';
+
 import { dataFromAsync } from '@zyno-io/openapi-client-codegen';
 import { handleErrorAndAlert } from '@zyno-io/vue-foundation';
 import { format } from 'date-fns';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { DeploymentsApi, type DeploymentTargetStatus, type IDeploymentResponse } from '@/openapi-client-generated';
+import { DeploymentsApi, type IDeploymentResponse } from '@/openapi-client-generated';
 import LoaderModal from '@/shared/components/loader-modal.vue';
 import StatusChip from '@/shared/components/status-chip.vue';
 import { isTerminal, type DeploymentStatus } from '@/shared/deployment-status';
@@ -97,22 +102,6 @@ import { isTerminal, type DeploymentStatus } from '@/shared/deployment-status';
 interface TimelineEntry {
     status: DeploymentStatus;
     message: string;
-}
-
-interface StatusEvent {
-    status: DeploymentStatus;
-    message: string;
-    commitUrl?: string;
-}
-
-interface TargetStatusEvent {
-    target: {
-        id: string;
-        clusterId: number;
-        clusterName: string;
-        status: DeploymentTargetStatus;
-        message: string;
-    };
 }
 
 const route = useRoute();

@@ -42,6 +42,7 @@ interface IDeploymentTargetResponse {
     helmType: 'flux' | 'plain';
     helmNamespace: string;
     helmName: string;
+    monitorTimeoutSecs: number;
     status: DeploymentTargetStatus;
     statusMessage: string | null;
     completedAt: Date | null;
@@ -194,6 +195,7 @@ export class DeploymentsController {
                     helmType: target.helmType,
                     helmNamespace: target.helmNamespace,
                     helmName: target.helmName,
+                    monitorTimeoutSecs: target.monitorTimeoutSecs,
                     status: target.status,
                     statusMessage: target.statusMessage,
                     completedAt: target.completedAt

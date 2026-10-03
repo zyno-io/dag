@@ -33,6 +33,25 @@ Submit a new deployment.
 | `401`  | Job token verification failed                                                            |
 | `404`  | No app configured for the given repo URL, or no matching environment configured          |
 
+Rollout budgets come from the environment's targets, not the submitting client. The resolved `monitorTimeoutSecs` for every target is pinned when the deployment is queued.
+
+## Environment Target Configuration
+
+The authenticated environment create/update endpoints accept an optional `monitorTimeoutSecs` field on each item of the `targets` array. Use a whole number from 1 to 2147483647 seconds, or null/omit it to use the server default. Environment responses return the nullable configured value; deployment responses and SSE target events return the resolved snapshot value. Managing this setting requires the same IaC repository permissions as editing the target destination.
+
+For example, an environment may include independent budgets:
+
+```json
+{
+    "targets": [
+        { "clusterId": 1, "helmType": "flux", "helmNamespace": "staging", "helmName": "my-app", "monitorTimeoutSecs": 300 },
+        { "clusterId": 2, "helmType": "flux", "helmNamespace": "staging", "helmName": "my-app", "monitorTimeoutSecs": 28800 }
+    ]
+}
+```
+
+The other required environment fields still apply. Editing these targets affects future deployments.
+
 ## POST /api/get/chart
 
 Download the currently deployed chart from the IaC repository as a gzipped tarball.
@@ -129,6 +148,7 @@ interface DeploymentTargetStatusEvent {
         id: string;
         clusterId: number;
         clusterName: string;
+        monitorTimeoutSecs: number;
         status: 'pending' | 'monitoring' | 'deployed' | 'failed';
         message: string;
     };
@@ -143,6 +163,7 @@ Where `DeploymentStatus` is one of: `pending`, `validating`, `pushing`, `pushed`
 - If the deployment is already terminal (`deployed` or `failed`), sends its target snapshot, then one final parent event and closes the connection
 - Otherwise, sends the current status immediately, then streams updates as they occur
 - Replays the current state of every cluster target before the parent status frame
+- Sends a `heartbeat` event with `{}` data every 15 seconds while non-terminal, even without rollout progress
 - The connection closes automatically when a terminal status is reached
 
 ### Example

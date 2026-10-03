@@ -1,5 +1,6 @@
 import type { DeploymentTargetStatusEvent, DeployResponse, DeploymentStatusEvent } from '@zyno-io/dag-shared';
 
+import { DEPLOYMENT_CONNECTION_TIMEOUT_MS } from '@zyno-io/dag-shared';
 import { EventSource } from 'eventsource';
 
 export interface AppInfoOptions {
@@ -58,7 +59,8 @@ export interface DeployOptions {
     environment?: string;
     version: string;
     chartBuffer: Buffer;
-    timeout: number;
+    /** @deprecated Ignored. Rollout budgets belong to server-side deployment targets. */
+    timeout?: number;
 }
 
 export async function submitDeploy(options: DeployOptions): Promise<string> {
@@ -74,24 +76,35 @@ export async function submitDeploy(options: DeployOptions): Promise<string> {
 
     const url = `${serverUrl.replace(/\/+$/, '')}/api/deploy`;
 
-    const response = await fetch(url, {
-        method: 'POST',
-        body: formData
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEPLOYMENT_CONNECTION_TIMEOUT_MS);
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+        });
 
-    if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`Deploy request failed (${response.status}): ${body}`);
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`Deploy request failed (${response.status}): ${body}`);
+        }
+
+        const data: DeployResponse = await response.json();
+        return data.deploymentId;
+    } catch (err) {
+        if (controller.signal.aborted) {
+            throw new Error('DAG server did not respond to deployment submission within 30s. Deployment outcome is unknown.');
+        }
+        throw err;
+    } finally {
+        clearTimeout(timer);
     }
-
-    const data = (await response.json()) as DeployResponse;
-    return data.deploymentId;
 }
 
 export function streamDeploymentEvents(
     serverUrl: string,
     deploymentId: string,
-    timeout: number,
     onEvent: (event: DeploymentStatusEvent) => void,
     onTargetEvent?: (event: DeploymentTargetStatusEvent) => void
 ): Promise<DeploymentStatusEvent> {
@@ -99,29 +112,16 @@ export function streamDeploymentEvents(
         const url = `${serverUrl.replace(/\/+$/, '')}/api/deployments/${deploymentId}/events`;
         const es = new EventSource(url);
 
-        // Add a 30s grace period beyond the requested timeout so the server's
-        // own timeout (which carries a detailed error message) has time to arrive
-        // before we fall back to a generic client-side timeout.
-        const timer = setTimeout(
-            () => {
-                es.close();
-                reject(new Error(`Deployment timed out after ${timeout}s`));
-            },
-            (timeout + 30) * 1000
-        );
-
         // Liveness detection: if no event arrives within 30s (2x the 15s heartbeat),
         // treat the connection as dead
-        const LIVENESS_TIMEOUT = 30_000;
         let livenessTimer: ReturnType<typeof setTimeout>;
 
         function resetLivenessTimer() {
             clearTimeout(livenessTimer);
             livenessTimer = setTimeout(() => {
-                clearTimeout(timer);
                 es.close();
-                reject(new Error('SSE connection lost (no heartbeat received)'));
-            }, LIVENESS_TIMEOUT);
+                reject(new Error('SSE connection lost (no event or heartbeat received within 30s). Deployment outcome is unknown.'));
+            }, DEPLOYMENT_CONNECTION_TIMEOUT_MS);
         }
 
         resetLivenessTimer();
@@ -138,7 +138,6 @@ export function streamDeploymentEvents(
                 onEvent(data);
 
                 if (data.status === 'deployed' || data.status === 'failed') {
-                    clearTimeout(timer);
                     clearTimeout(livenessTimer);
                     es.close();
                     resolve(data);
@@ -160,10 +159,9 @@ export function streamDeploymentEvents(
         });
 
         es.onerror = (_err: Event) => {
-            clearTimeout(timer);
             clearTimeout(livenessTimer);
             es.close();
-            reject(new Error('SSE connection error'));
+            reject(new Error('SSE connection error. Deployment outcome is unknown.'));
         };
     });
 }

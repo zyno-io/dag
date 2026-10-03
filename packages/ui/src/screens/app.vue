@@ -50,9 +50,17 @@
                                 <dt>Deployment targets</dt>
                                 <dd>
                                     <ul>
-                                        <li v-for="target in env.targets" :key="target.id ?? `${target.clusterId}-${target.helmType}-${target.helmNamespace}-${target.helmName}`">
+                                        <li
+                                            v-for="target in env.targets"
+                                            :key="target.id ?? `${target.clusterId}-${target.helmType}-${target.helmNamespace}-${target.helmName}`"
+                                        >
                                             <strong>{{ target.clusterName }}</strong>
-                                            <span>{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }}</span>
+                                            <span
+                                                >{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }} ·
+                                                {{
+                                                    target.monitorTimeoutSecs == null ? 'default timeout' : `${target.monitorTimeoutSecs}s timeout`
+                                                }}</span
+                                            >
                                         </li>
                                     </ul>
                                 </dd>
@@ -88,7 +96,7 @@
             </div>
         </VfModal>
 
-        <VfModal v-if="showEnvironmentForm" @close="showEnvironmentForm = false">
+        <VfModal v-if="showEnvironmentForm" scrolls @close="showEnvironmentForm = false">
             <div class="form-modal">
                 <h2>{{ editingEnvironmentId ? 'Edit environment' : 'Add environment' }}</h2>
                 <form @submit.prevent="submitEnvironment">

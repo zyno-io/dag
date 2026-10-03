@@ -11,6 +11,8 @@ export class AppEnvironmentTargetEntity extends BaseEntity {
     helmNamespace!: string;
     /** Stored as the resolved value: Helm defaults are made explicit at configuration time. */
     helmName!: string;
+    /** Null uses the server default, resolved when a deployment is queued. */
+    monitorTimeoutSecs!: number | null;
     createdAt: Date & HasDefault = new Date();
     updatedAt: Date & HasDefault = new Date();
 }

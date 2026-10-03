@@ -73,6 +73,7 @@ export class DeploymentLifecycleListener {
                         id: target.id,
                         clusterId: target.clusterId,
                         clusterName: target.clusterName,
+                        monitorTimeoutSecs: target.monitorTimeoutSecs,
                         status: 'failed',
                         message
                     }

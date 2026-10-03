@@ -2,6 +2,7 @@ import { BaseAppConfig } from '@zyno-io/ts-server-foundation';
 
 export class AppConfig extends BaseAppConfig {
     DATA_DIR: string = '/tmp/dag';
+    /** Default for targets without an explicit budget; snapshotted when queued. */
     DEPLOY_MONITOR_TIMEOUT_SECS: number = 300;
 
     /** Base URL of the GitLab instance users log in with, and which hosts the IaC repos. */

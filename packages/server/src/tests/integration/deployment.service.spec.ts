@@ -51,6 +51,7 @@ describe('DeploymentService multi-cluster orchestration', () => {
                 helmType: 'flux',
                 helmNamespace: 'default',
                 helmName: 'service',
+                monitorTimeoutSecs: 10,
                 status: 'pending',
                 statusMessage: null,
                 completedAt: null,
@@ -65,6 +66,7 @@ describe('DeploymentService multi-cluster orchestration', () => {
                 helmType: 'plain',
                 helmNamespace: 'default',
                 helmName: 'service',
+                monitorTimeoutSecs: 28800,
                 status: 'pending',
                 statusMessage: null,
                 completedAt: null,
@@ -93,6 +95,7 @@ describe('DeploymentService multi-cluster orchestration', () => {
             bothMonitorsStarted = resolve;
         });
         const started: string[] = [];
+        const budgets: number[] = [];
 
         try {
             DeploymentEntity.query = (() => queryForOne(deployment)) as any;
@@ -112,8 +115,9 @@ describe('DeploymentService multi-cluster orchestration', () => {
                 { updateChartVersion: async () => {} } as any,
                 {
                     capturePreDeployState: async () => null,
-                    watchDeployment: async (cluster: ClusterEntity) => {
+                    watchDeployment: async (cluster: ClusterEntity, target: DeploymentTargetEntity) => {
                         started.push(cluster.name);
+                        budgets.push(target.monitorTimeoutSecs);
                         if (started.length === 2) bothMonitorsStarted();
                         await monitorsReleased;
                         if (cluster.name === 'west') throw new Error('Helm release service failed');
@@ -125,6 +129,7 @@ describe('DeploymentService multi-cluster orchestration', () => {
             const processing = service.processDeployment(deployment.id, Buffer.from('chart'), 'abc');
             await bothStarted;
             assert.deepEqual(started.sort(), ['east', 'west']);
+            assert.deepEqual(budgets, [10, 28800]);
 
             releaseMonitors!();
             await assert.rejects(processing, /1 of 2 cluster targets failed/);
