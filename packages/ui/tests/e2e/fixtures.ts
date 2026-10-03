@@ -20,7 +20,8 @@ export const sessionUser: ISessionResponse = {
     id: 'usr-aaaa-bbbb-cccc-dddd',
     name: 'Casey Tester',
     username: 'casey',
-    avatarUrl: null
+    avatarUrl: null,
+    defaultMonitorTimeoutSecs: 300
 };
 
 export const iacs: IIacResponse[] = [

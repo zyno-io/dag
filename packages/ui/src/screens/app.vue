@@ -57,9 +57,7 @@
                                             <strong>{{ target.clusterName }}</strong>
                                             <span
                                                 >{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }} ·
-                                                {{
-                                                    target.monitorTimeoutSecs == null ? 'default timeout' : `${target.monitorTimeoutSecs}s timeout`
-                                                }}</span
+                                                {{ target.monitorTimeoutSecs ?? sessionUser?.defaultMonitorTimeoutSecs }}s timeout</span
                                             >
                                         </li>
                                     </ul>
@@ -137,7 +135,7 @@ import { useStore } from '@/store';
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
-const { manageableIacs } = storeToRefs(store);
+const { manageableIacs, sessionUser } = storeToRefs(store);
 
 const appId = Number(route.params.appId);
 

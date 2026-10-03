@@ -109,10 +109,13 @@
                     min="1"
                     max="2147483647"
                     step="1"
-                    placeholder="Server default"
+                    :placeholder="String(sessionUser?.defaultMonitorTimeoutSecs ?? '')"
                     @input="setTargetTimeout(index, $event)"
                 />
-                <span class="hint">Leave blank to use the server default. Covers chart detection and rollout on this target.</span>
+                <span class="hint"
+                    >Leave blank to use the server timeout of {{ sessionUser?.defaultMonitorTimeoutSecs }} seconds. Covers chart detection and rollout
+                    on this target.</span
+                >
             </label>
         </div>
     </div>
@@ -120,10 +123,14 @@
 
 <script lang="ts" setup>
 import { VfSmartSelect } from '@zyno-io/vue-foundation';
+import { storeToRefs } from 'pinia';
 
 import type { IClusterResponse, IIacResponse } from '@/openapi-client-generated';
 
 import { blankEnvironmentTarget, type EnvironmentForm, type EnvironmentTargetForm } from '@/shared/environment-form';
+import { useStore } from '@/store';
+
+const { sessionUser } = storeToRefs(useStore());
 
 const HELM_TYPE_OPTIONS: { value: EnvironmentTargetForm['helmType']; label: string }[] = [
     { value: 'flux', label: 'Flux (HelmRelease)' },

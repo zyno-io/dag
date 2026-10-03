@@ -84,6 +84,8 @@ Each environment has a non-empty `targets` list. A target contains `clusterId`, 
 
 Set `monitorTimeoutSecs` on each environment target through the environment editor or the environment create/update API's `targets` array. It must be a whole number from 1 through 2147483647 seconds. Null or omitted uses `DEPLOY_MONITOR_TIMEOUT_SECS` (default 300 seconds). This setting remains managed by the environment's IaC repository owners.
 
+The target summary and editor show the actual configured server timeout when a target has no override. Leaving the editor field blank keeps the target on that server setting.
+
 At submission, DAG resolves each target's budget and persists it alongside the immutable Helm destination in the deployment target snapshot. Later target edits or server-default changes do not alter an in-flight deployment. Each monitor uses its own budget across both revision detection and rollout readiness, starting when that monitor begins polling after the chart is pushed. DAG waits for every target to finish before reporting the aggregate result.
 
 Kubernetes polling requests are cancelled after 30 seconds, or sooner when the target's remaining budget expires. Transient request errors are retried within that same budget.

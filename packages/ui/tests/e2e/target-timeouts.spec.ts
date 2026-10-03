@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-import { appDetail, ids } from './fixtures';
+import { appDetail, ids, sessionUser } from './fixtures';
 import { json, mockAppDetailRoutes, setupAuth, setupBaseMocks } from './helpers';
 
 test('edits independent target budgets and can restore the server default', async ({ page }) => {
     await setupAuth(page);
     await setupBaseMocks(page);
+    await json(page, '**/api/session/me', { ...sessionUser, defaultMonitorTimeoutSecs: 900 });
     await mockAppDetailRoutes(page);
     let detail = structuredClone(appDetail);
     const targets = detail.environments[0].targets;
@@ -23,11 +24,14 @@ test('edits independent target budgets and can restore the server default', asyn
         await route.fulfill({ contentType: 'application/json', body: JSON.stringify(detail.environments[0]) });
     });
     await page.goto(`/apps/${ids.appId}`);
+    await expect(page.locator('.environment').first().locator('.targets li').first()).toContainText('900s timeout');
     const edit = page.locator('.environment').first().getByRole('button', { name: 'Edit', exact: true });
     await edit.click();
     const inputs = page.getByLabel('Rollout timeout (seconds)', { exact: false });
     await expect(inputs).toHaveCount(2);
     await expect(inputs.nth(0)).toHaveValue('');
+    await expect(inputs.nth(0)).toHaveAttribute('placeholder', '900');
+    await expect(page.getByText('Leave blank to use the server timeout of 900 seconds.', { exact: false }).first()).toBeVisible();
     await inputs.nth(0).fill('0');
     const valid = await inputs.nth(0).evaluate(input => (input as HTMLInputElement).checkValidity());
     expect(valid).toBe(false);
@@ -36,6 +40,7 @@ test('edits independent target budgets and can restore the server default', asyn
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Edit environment' })).toHaveCount(0);
     expect(budgets).toEqual([[600, 28800]]);
+    await expect(page.locator('.environment').first().locator('.targets li').first()).toContainText('600s timeout');
     await edit.click();
     await expect(inputs.nth(0)).toHaveValue('600');
     await expect(inputs.nth(1)).toHaveValue('28800');
@@ -46,4 +51,5 @@ test('edits independent target budgets and can restore the server default', asyn
         [600, 28800],
         [null, 28800]
     ]);
+    await expect(page.locator('.environment').first().locator('.targets li').first()).toContainText('900s timeout');
 });

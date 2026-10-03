@@ -39,6 +39,8 @@ Rollout budgets come from the environment's targets, not the submitting client. 
 
 The authenticated environment create/update endpoints accept an optional `monitorTimeoutSecs` field on each item of the `targets` array. Use a whole number from 1 to 2147483647 seconds, or null/omit it to use the server default. Environment responses return the nullable configured value; deployment responses and SSE target events return the resolved snapshot value. Managing this setting requires the same IaC repository permissions as editing the target destination.
 
+The authenticated `GET /api/session/me` response includes `defaultMonitorTimeoutSecs`, the current server timeout displayed for targets without an override.
+
 For example, an environment may include independent budgets:
 
 ```json
