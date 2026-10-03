@@ -21,6 +21,7 @@ export interface IEnvironmentTargetResponse {
     helmType: 'flux' | 'plain';
     helmNamespace: string;
     helmName: string;
+    monitorTimeoutSecs: number | null;
 }
 
 export interface IEnvironmentResponse {
@@ -61,7 +62,8 @@ export function toEnvironmentResponse(
         clusterName: clusters.get(target.clusterId)?.name ?? 'unknown',
         helmType: target.helmType,
         helmNamespace: target.helmNamespace,
-        helmName: target.helmName
+        helmName: target.helmName,
+        monitorTimeoutSecs: target.monitorTimeoutSecs
     }));
     const primaryTarget = targets[0];
 

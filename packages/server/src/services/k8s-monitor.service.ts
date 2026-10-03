@@ -1,7 +1,7 @@
 import * as k8s from '@kubernetes/client-node';
+import { HelmDeploymentTarget, isValidDeployMonitorTimeout } from '@zyno-io/dag-shared';
 import { ScopedLogger } from '@zyno-io/ts-server-foundation';
 
-import { AppConfig } from '../config';
 import { ClusterEntity } from '../entities/cluster.entity';
 import { decryptField } from '../helpers/crypto';
 
@@ -21,18 +21,10 @@ export interface PreDeploySnapshot {
     plainVersion?: number;
 }
 
-/** Immutable Helm destination copied into a deployment target before monitoring begins. */
-export interface HelmDeploymentTarget {
-    helmType: 'flux' | 'plain';
-    helmNamespace: string;
-    helmName: string;
-}
+export type { HelmDeploymentTarget } from '@zyno-io/dag-shared';
 
 export class K8sMonitorService {
-    constructor(
-        private config: AppConfig,
-        private logger: ScopedLogger
-    ) {}
+    constructor(private logger: ScopedLogger) {}
 
     async capturePreDeployState(cluster: ClusterEntity, target: HelmDeploymentTarget): Promise<PreDeploySnapshot | null> {
         try {
@@ -76,7 +68,10 @@ export class K8sMonitorService {
         callbacks: MonitorCallbacks,
         preDeploySnapshot?: PreDeploySnapshot | null
     ): Promise<void> {
-        const timeoutMs = this.config.DEPLOY_MONITOR_TIMEOUT_SECS * 1000;
+        if (!isValidDeployMonitorTimeout(target.monitorTimeoutSecs)) {
+            throw new Error('Invalid deployment target monitor timeout');
+        }
+        const timeoutMs = target.monitorTimeoutSecs * 1000;
 
         if (target.helmType === 'flux') {
             await this.watchFluxHelmRelease(cluster, target, callbacks, timeoutMs, preDeploySnapshot);
@@ -114,6 +109,48 @@ export class K8sMonitorService {
         return kc;
     }
 
+    private async pollKubernetes<T>(deadline: number, poll: (options: k8s.ConfigurationOptions) => Promise<T>): Promise<T> {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) throw new Error('Deployment target monitor budget expired');
+
+        const controller = new AbortController();
+        const configuration = k8s.createConfiguration({
+            promiseMiddleware: [
+                {
+                    pre: async request => {
+                        request.setSignal(controller.signal);
+                        return request;
+                    },
+                    post: async response => response
+                }
+            ]
+        });
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        // Bound each request as well as the overall monitor budget. Retrying a stalled
+        // request must not consume the target's entire budget or overflow a Node timer.
+        const timeout = new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+                () => {
+                    controller.abort();
+                    reject(new Error('Kubernetes polling request timed out'));
+                },
+                Math.min(30_000, remainingMs)
+            );
+        });
+        try {
+            const response = await Promise.race([poll({ middleware: configuration.middleware, middlewareMergeStrategy: 'append' }), timeout]);
+            if (Date.now() >= deadline) throw new Error('Deployment target monitor budget expired');
+            return response;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    private async waitForNextPoll(deadline: number): Promise<void> {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs > 0) await new Promise(resolve => setTimeout(resolve, Math.min(5000, remainingMs)));
+    }
+
     private async watchFluxHelmRelease(
         cluster: ClusterEntity,
         target: HelmDeploymentTarget,
@@ -138,13 +175,18 @@ export class K8sMonitorService {
 
             while (Date.now() - startTime < timeoutMs) {
                 try {
-                    const response = await customApi.getNamespacedCustomObject({
-                        group: 'helm.toolkit.fluxcd.io',
-                        version: 'v2',
-                        namespace,
-                        plural: 'helmreleases',
-                        name: helmReleaseName
-                    });
+                    const response = await this.pollKubernetes(startTime + timeoutMs, options =>
+                        customApi.getNamespacedCustomObject(
+                            {
+                                group: 'helm.toolkit.fluxcd.io',
+                                version: 'v2',
+                                namespace,
+                                plural: 'helmreleases',
+                                name: helmReleaseName
+                            },
+                            options
+                        )
+                    );
                     const obj = response as Record<string, unknown>;
                     const status = obj?.status as Record<string, unknown> | undefined;
                     const currentRevision = status?.lastAttemptedRevision as string | undefined;
@@ -159,12 +201,12 @@ export class K8sMonitorService {
                 }
 
                 await callbacks.onStatusChange(`Waiting for Flux to detect new chart version...`);
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                await this.waitForNextPoll(startTime + timeoutMs);
             }
 
             if (Date.now() - startTime >= timeoutMs) {
                 throw new Error(
-                    `Timeout waiting for Flux to detect new revision for ${helmReleaseName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`
+                    `Timeout waiting for Flux to detect new revision for ${helmReleaseName} on ${clusterLabel} after ${timeoutMs / 1000}s`
                 );
             }
         }
@@ -172,13 +214,18 @@ export class K8sMonitorService {
         // Phase 2: Wait for ready
         while (Date.now() - startTime < timeoutMs) {
             try {
-                const response = await customApi.getNamespacedCustomObject({
-                    group: 'helm.toolkit.fluxcd.io',
-                    version: 'v2',
-                    namespace,
-                    plural: 'helmreleases',
-                    name: helmReleaseName
-                });
+                const response = await this.pollKubernetes(startTime + timeoutMs, options =>
+                    customApi.getNamespacedCustomObject(
+                        {
+                            group: 'helm.toolkit.fluxcd.io',
+                            version: 'v2',
+                            namespace,
+                            plural: 'helmreleases',
+                            name: helmReleaseName
+                        },
+                        options
+                    )
+                );
 
                 const obj = response as Record<string, unknown>;
                 const status = obj?.status as Record<string, unknown> | undefined;
@@ -220,10 +267,10 @@ export class K8sMonitorService {
                 }
             }
 
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await this.waitForNextPoll(startTime + timeoutMs);
         }
 
-        throw new Error(`Timeout waiting for HelmRelease ${helmReleaseName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`);
+        throw new Error(`Timeout waiting for HelmRelease ${helmReleaseName} on ${clusterLabel} after ${timeoutMs / 1000}s`);
     }
 
     private async watchPlainHelmRelease(
@@ -250,10 +297,15 @@ export class K8sMonitorService {
 
             while (Date.now() - startTime < timeoutMs) {
                 try {
-                    const secrets = await coreApi.listNamespacedSecret({
-                        namespace,
-                        labelSelector: `name=${helmName},owner=helm`
-                    });
+                    const secrets = await this.pollKubernetes(startTime + timeoutMs, options =>
+                        coreApi.listNamespacedSecret(
+                            {
+                                namespace,
+                                labelSelector: `name=${helmName},owner=helm`
+                            },
+                            options
+                        )
+                    );
                     let maxVersion = 0;
                     for (const secret of secrets.items) {
                         const v = parseInt(secret.metadata?.labels?.['version'] ?? '0');
@@ -270,13 +322,11 @@ export class K8sMonitorService {
                 }
 
                 await callbacks.onStatusChange(`Waiting for new Helm release version (current: v${preDeploySnapshot.plainVersion})...`);
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                await this.waitForNextPoll(startTime + timeoutMs);
             }
 
             if (Date.now() - startTime >= timeoutMs) {
-                throw new Error(
-                    `Timeout waiting for new Helm release version for ${helmName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`
-                );
+                throw new Error(`Timeout waiting for new Helm release version for ${helmName} on ${clusterLabel} after ${timeoutMs / 1000}s`);
             }
         }
 
@@ -284,10 +334,15 @@ export class K8sMonitorService {
         while (Date.now() - startTime < timeoutMs) {
             try {
                 // Helm stores release info as secrets with name pattern: sh.helm.release.v1.<name>.v<revision>
-                const secrets = await coreApi.listNamespacedSecret({
-                    namespace,
-                    labelSelector: `name=${helmName},owner=helm`
-                });
+                const secrets = await this.pollKubernetes(startTime + timeoutMs, options =>
+                    coreApi.listNamespacedSecret(
+                        {
+                            namespace,
+                            labelSelector: `name=${helmName},owner=helm`
+                        },
+                        options
+                    )
+                );
 
                 if (secrets.items.length > 0) {
                     // Get the latest release secret (highest version)
@@ -330,9 +385,9 @@ export class K8sMonitorService {
                 await callbacks.onStatusChange(`Error polling Helm release ${helmName} on ${cluster.name}, retrying...`);
             }
 
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await this.waitForNextPoll(startTime + timeoutMs);
         }
 
-        throw new Error(`Timeout waiting for Helm release ${helmName} on ${clusterLabel} after ${this.config.DEPLOY_MONITOR_TIMEOUT_SECS}s`);
+        throw new Error(`Timeout waiting for Helm release ${helmName} on ${clusterLabel} after ${timeoutMs / 1000}s`);
     }
 }

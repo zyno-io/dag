@@ -26,6 +26,7 @@ postgres:
 
 config:
   appEnv: production
+  # Default rollout budget for targets without an explicit monitorTimeoutSecs override.
   deployMonitorTimeoutSecs: 300
   cryptoSecret: ''
   # Signs management-UI session tokens. Rotating it logs everyone out.

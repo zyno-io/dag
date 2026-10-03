@@ -16,7 +16,7 @@ Every deployment in DAG progresses through a series of statuses. These statuses 
 
 ## Flow
 
-```
+```text
 pending → validating → pushing → pushed → monitoring → deployed
                  │           │                  │
                  └───────────┴──────────────────┴──→ failed
@@ -27,6 +27,8 @@ A deployment can transition to `failed` from any non-terminal status.
 ## Multi-cluster Deployments
 
 An environment can contain multiple cluster targets. DAG monitors them in parallel and records an independent `pending`, `monitoring`, `deployed`, or `failed` outcome for each target. The parent deployment remains `monitoring` until every target is terminal; it is `deployed` only when all targets succeeded, otherwise it is `failed` with the failed-target summary.
+
+Each target uses its own snapshotted `monitorTimeoutSecs` budget. One target timing out does not shorten another target's monitor. The CLI waits for the parent terminal result without an overall deadline; 15-second SSE heartbeats keep the connection alive during quiet rollout periods. A 30-second silence produces a connection error with an unknown outcome, leaving server-side monitoring running.
 
 ## Terminal States
 
@@ -40,9 +42,9 @@ The two terminal states are `deployed` and `failed`. Once a deployment reaches a
 
 Each status event includes a human-readable `message` field. On failure, the message describes what went wrong:
 
-| Failure Point      | Example Message                                                    |
-| ------------------ | ------------------------------------------------------------------ |
-| Token verification | `Job token verification failed`                                    |
-| IAC push           | `Failed to push chart to IAC repo`                                 |
-| K8s monitoring     | `HelmRelease reconciliation failed: chart values validation error` |
-| Timeout            | `Deployment timed out after 300 seconds`                           |
+| Failure Point      | Example Message                                                        |
+| ------------------ | ---------------------------------------------------------------------- |
+| Token verification | `Job token verification failed`                                        |
+| IAC push           | `Failed to push chart to IAC repo`                                     |
+| K8s monitoring     | `HelmRelease reconciliation failed: chart values validation error`     |
+| Timeout            | `Timeout waiting for HelmRelease my-app on cluster 1 (...) after 300s` |

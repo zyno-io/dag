@@ -38,7 +38,7 @@
             </div>
         </template>
 
-        <VfModal v-if="showCreate" @close="showCreate = false">
+        <VfModal v-if="showCreate" scrolls @close="showCreate = false">
             <div class="create-form">
                 <h2>Add app</h2>
 

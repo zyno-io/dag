@@ -51,7 +51,7 @@ Map a branch and environment name to an IaC repo path and one or more cluster ta
 | `iacPath`   | `string`         | Path within IAC repo to place the chart |
 | `iacBranch` | `string \| null` | IAC repo branch (null = default branch) |
 
-Add a target for every cluster that should receive the chart. A target has `clusterId`, `helmType`, `helmNamespace`, and `helmName`. DAG monitors every target in parallel and reports success only if all targets succeed.
+Add a target for every cluster that should receive the chart. A target has `clusterId`, `helmType`, `helmNamespace`, `helmName`, and an optional `monitorTimeoutSecs` rollout budget. DAG monitors every target in parallel and reports success only if all targets succeed. Set the rollout timeout in seconds on each target in the environment editor, or supply `monitorTimeoutSecs` in that target's API input. Leave it blank/null to use the server default. DAG snapshots the resolved budget when a deployment is submitted, so edits apply to future deployments. See [Target Rollout Budgets](../server/configuration.md#target-rollout-budgets).
 
 ```sql
 INSERT INTO apps_environments

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { CoreAppOptions } from '../../app';
+import { AppConfig } from '../../config';
 import { AppEnvironmentEntity } from '../../entities/app-environment.entity';
 import { AppEntity } from '../../entities/app.entity';
 import { ClusterEntity } from '../../entities/cluster.entity';
@@ -171,6 +172,53 @@ function environmentBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe('GitLab-derived permissions', () => {
+    it('exposes the configured server rollout budget to the authenticated UI', async () => {
+        const config = tf.get<AppConfig>(AppConfig);
+        const previousBudget = config.DEPLOY_MONITOR_TIMEOUT_SECS;
+        config.DEPLOY_MONITOR_TIMEOUT_SECS = 900;
+        try {
+            const response = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/session/me', auth('gl-maintainer'));
+            assert.equal(response.statusCode, 200);
+            const session = JSON.parse(response.bodyString);
+            assert.equal(session.defaultMonitorTimeoutSecs, 900);
+            assert.equal(session.username, 'gl-maintainer');
+        } finally {
+            config.DEPLOY_MONITOR_TIMEOUT_SECS = previousBudget;
+        }
+    });
+
+    it('persists and edits a target rollout budget through the environment API', async () => {
+        const target = { clusterId, helmType: 'flux', helmNamespace: 'staging', helmName: 'custom-timeout', monitorTimeoutSecs: 28800 };
+        const body = environmentBody({ iacPath: 'charts/custom-timeout', targets: [target] });
+        const created = await TestingHelpers.makeMockRequest(tf, 'POST', `/api/apps/${appId}/environments`, auth('gl-maintainer'), body);
+        assert.equal(created.statusCode, 200);
+        const environment = JSON.parse(created.bodyString);
+        assert.equal(environment.targets[0].monitorTimeoutSecs, 28800);
+        const updated = await TestingHelpers.makeMockRequest(tf, 'PUT', `/api/apps/${appId}/environments/${environment.id}`, auth('gl-maintainer'), {
+            ...body,
+            targets: [{ ...target, monitorTimeoutSecs: 600 }]
+        });
+        assert.equal(updated.statusCode, 200);
+        const response = await TestingHelpers.makeMockRequest(tf, 'GET', `/api/apps/${appId}/environments`, auth('gl-maintainer'));
+        const reloaded = JSON.parse(response.bodyString).find((value: { id: number }) => value.id === environment.id);
+        assert.equal(reloaded.targets[0].monitorTimeoutSecs, 600);
+    });
+
+    it('rejects invalid rollout budgets through the environment API', async () => {
+        for (const monitorTimeoutSecs of [0, -1, 1.5, 2147483648]) {
+            const response = await TestingHelpers.makeMockRequest(
+                tf,
+                'POST',
+                `/api/apps/${appId}/environments`,
+                auth('gl-maintainer'),
+                environmentBody({
+                    targets: [{ clusterId, helmType: 'flux', helmNamespace: 'staging', helmName: 'custom-timeout', monitorTimeoutSecs }]
+                })
+            );
+            assert.equal(response.statusCode, 400);
+        }
+    });
+
     it('rejects unauthenticated requests', async () => {
         const response = await TestingHelpers.makeMockRequest(tf, 'GET', '/api/apps', {});
         assert.equal(response.statusCode, 401);

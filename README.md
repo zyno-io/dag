@@ -85,7 +85,7 @@ dag-deploy <chart-path> [options]
 | `--job-id <id>`          | `DAG_JOB_ID`         | Override auto-detected job ID                          |
 | `--job-token <token>`    | `DAG_JOB_TOKEN`      | Override auto-detected job token                       |
 | `--environment <name>`   | `DAG_ENVIRONMENT`    | Target environment name for same-branch environments   |
-| `--timeout <seconds>`    | `DAG_TIMEOUT`        | Client-side timeout (default: `300`)                   |
+| `--timeout <seconds>`    | `DAG_TIMEOUT`        | Deprecated; accepted and ignored                       |
 | `--values-file <path>`   | —                    | YAML file to deep-merge into the chart's `values.yaml` |
 | `--set <key=value>`      | —                    | Set a dotted path to a string value (repeatable)       |
 | `--set-json <key=json>`  | —                    | Set a dotted path to a JSON-parsed value (repeatable)  |
@@ -162,7 +162,7 @@ docker run -d \
 | `PG_DATABASE`                 | —          | PostgreSQL database                                                    |
 | `PG_USER`                     | —          | PostgreSQL user                                                        |
 | `PG_PASSWORD_SECRET`          | —          | PostgreSQL password                                                    |
-| `DEPLOY_MONITOR_TIMEOUT_SECS` | `300`      | K8s deployment monitoring timeout                                      |
+| `DEPLOY_MONITOR_TIMEOUT_SECS` | `300`      | Default target rollout budget in seconds                               |
 
 See the [full documentation](https://zyno-io.github.io/dag/server/configuration) for all options including observability settings.
 

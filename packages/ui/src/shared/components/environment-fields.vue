@@ -83,23 +83,54 @@
 
                 <label>
                     Helm release name
-                    <input :value="target.helmName ?? ''" type="text" placeholder="my-service" @input="setTargetNullable(index, 'helmName', $event)" />
+                    <input
+                        :value="target.helmName ?? ''"
+                        type="text"
+                        placeholder="my-service"
+                        @input="setTargetNullable(index, 'helmName', $event)"
+                    />
                 </label>
 
                 <label>
                     Namespace
-                    <input :value="target.helmNamespace ?? ''" type="text" placeholder="default" @input="setTargetNullable(index, 'helmNamespace', $event)" />
+                    <input
+                        :value="target.helmNamespace ?? ''"
+                        type="text"
+                        placeholder="default"
+                        @input="setTargetNullable(index, 'helmNamespace', $event)"
+                    />
                 </label>
             </div>
+            <label>
+                Rollout timeout (seconds)
+                <input
+                    :value="target.monitorTimeoutSecs ?? ''"
+                    type="number"
+                    min="1"
+                    max="2147483647"
+                    step="1"
+                    :placeholder="String(sessionUser?.defaultMonitorTimeoutSecs ?? '')"
+                    @input="setTargetTimeout(index, $event)"
+                />
+                <span class="hint"
+                    >Leave blank to use the server timeout of {{ sessionUser?.defaultMonitorTimeoutSecs }} seconds. Covers chart detection and rollout
+                    on this target.</span
+                >
+            </label>
         </div>
     </div>
 </template>
 
 <script lang="ts" setup>
 import { VfSmartSelect } from '@zyno-io/vue-foundation';
+import { storeToRefs } from 'pinia';
 
 import type { IClusterResponse, IIacResponse } from '@/openapi-client-generated';
+
 import { blankEnvironmentTarget, type EnvironmentForm, type EnvironmentTargetForm } from '@/shared/environment-form';
+import { useStore } from '@/store';
+
+const { sessionUser } = storeToRefs(useStore());
 
 const HELM_TYPE_OPTIONS: { value: EnvironmentTargetForm['helmType']; label: string }[] = [
     { value: 'flux', label: 'Flux (HelmRelease)' },
@@ -130,6 +161,11 @@ function removeTarget(index: number) {
 function setTargetNullable(index: number, field: 'helmName' | 'helmNamespace', event: Event) {
     const value = (event.target as HTMLInputElement).value.trim();
     model.value.targets[index][field] = value || null;
+}
+
+function setTargetTimeout(index: number, event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    model.value.targets[index].monitorTimeoutSecs = value === '' ? null : Number(value);
 }
 </script>
 

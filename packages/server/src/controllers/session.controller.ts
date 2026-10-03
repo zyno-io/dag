@@ -25,6 +25,8 @@ interface ISessionResponse {
     name: string;
     username: string;
     avatarUrl: string | null;
+    /** Current server rollout budget used when an environment target has no override. */
+    defaultMonitorTimeoutSecs: number;
 }
 
 interface ISessionStatusResponse {
@@ -66,7 +68,8 @@ export class SessionController {
             id: user.id,
             name: user.name,
             username: user.username,
-            avatarUrl: user.avatarUrl
+            avatarUrl: user.avatarUrl,
+            defaultMonitorTimeoutSecs: this.config.DEPLOY_MONITOR_TIMEOUT_SECS
         };
     }
 

@@ -1,3 +1,4 @@
+import { isValidDeployMonitorTimeout, MAX_DEPLOY_MONITOR_TIMEOUT_SECS } from '@zyno-io/dag-shared';
 import { HttpAccessDeniedError, HttpBadRequestError, HttpNotFoundError } from '@zyno-io/ts-server-foundation';
 
 import { AppEnvironmentTargetEntity } from '../entities/app-environment-target.entity';
@@ -31,6 +32,7 @@ export interface EnvironmentTarget {
     helmType: 'flux' | 'plain';
     helmNamespace: string;
     helmName: string;
+    monitorTimeoutSecs: number | null;
 }
 
 /**
@@ -163,7 +165,8 @@ export class AppAccessService {
                     clusterId: target.clusterId,
                     helmType: target.helmType,
                     helmNamespace: target.helmNamespace,
-                    helmName: target.helmName
+                    helmName: target.helmName,
+                    monitorTimeoutSecs: target.monitorTimeoutSecs
                 });
             }
         }
@@ -179,7 +182,8 @@ export class AppAccessService {
                     clusterId: environment.clusterId,
                     helmType: environment.helmType,
                     helmNamespace: environment.helmNamespace ?? 'default',
-                    helmName: environment.helmName ?? environment.iacPath.split('/').pop()!
+                    helmName: environment.helmName ?? environment.iacPath.split('/').pop()!,
+                    monitorTimeoutSecs: null
                 });
             }
         }
@@ -237,11 +241,17 @@ export class AppAccessService {
 
         const iacPath = input.iacPath.trim().replace(/^\/+/, '').replace(/\/+$/, '');
         const defaultHelmName = iacPath.split('/').pop()!;
+        for (const target of rawTargets) {
+            if (target.monitorTimeoutSecs != null && !isValidDeployMonitorTimeout(target.monitorTimeoutSecs)) {
+                throw new HttpBadRequestError(`Target monitorTimeoutSecs must be a whole number between 1 and ${MAX_DEPLOY_MONITOR_TIMEOUT_SECS}`);
+            }
+        }
         const targets = rawTargets.map(target => ({
             clusterId: target.clusterId,
             helmType: target.helmType,
             helmNamespace: trimmedOrNull(target.helmNamespace) ?? 'default',
-            helmName: trimmedOrNull(target.helmName) ?? defaultHelmName
+            helmName: trimmedOrNull(target.helmName) ?? defaultHelmName,
+            monitorTimeoutSecs: target.monitorTimeoutSecs ?? null
         }));
         const primaryTarget = targets[0];
 
@@ -327,6 +337,8 @@ export interface EnvironmentTargetInput {
     helmType: 'flux' | 'plain';
     helmNamespace: string | null;
     helmName: string | null;
+    /** Null or omitted uses DEPLOY_MONITOR_TIMEOUT_SECS at deployment submission time. */
+    monitorTimeoutSecs?: number | null;
 }
 
 export interface NormalizedEnvironmentInput {
@@ -345,5 +357,6 @@ export interface NormalizedEnvironmentInput {
         helmType: 'flux' | 'plain';
         helmNamespace: string;
         helmName: string;
+        monitorTimeoutSecs: number | null;
     }>;
 }

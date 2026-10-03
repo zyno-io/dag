@@ -19,7 +19,8 @@ describe('controller environment selector forwarding', () => {
             } as any,
             { trackDeployment: () => {} } as any,
             { processDeployment: async () => {} } as any,
-            { log: () => {}, error: () => {} } as any
+            { log: () => {}, error: () => {} } as any,
+            {} as any
         );
 
         await assert.rejects(

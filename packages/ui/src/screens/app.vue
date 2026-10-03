@@ -50,9 +50,15 @@
                                 <dt>Deployment targets</dt>
                                 <dd>
                                     <ul>
-                                        <li v-for="target in env.targets" :key="target.id ?? `${target.clusterId}-${target.helmType}-${target.helmNamespace}-${target.helmName}`">
+                                        <li
+                                            v-for="target in env.targets"
+                                            :key="target.id ?? `${target.clusterId}-${target.helmType}-${target.helmNamespace}-${target.helmName}`"
+                                        >
                                             <strong>{{ target.clusterName }}</strong>
-                                            <span>{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }}</span>
+                                            <span
+                                                >{{ target.helmType }} · {{ target.helmName }} / {{ target.helmNamespace }} ·
+                                                {{ target.monitorTimeoutSecs ?? sessionUser?.defaultMonitorTimeoutSecs }}s timeout</span
+                                            >
                                         </li>
                                     </ul>
                                 </dd>
@@ -88,7 +94,7 @@
             </div>
         </VfModal>
 
-        <VfModal v-if="showEnvironmentForm" @close="showEnvironmentForm = false">
+        <VfModal v-if="showEnvironmentForm" scrolls @close="showEnvironmentForm = false">
             <div class="form-modal">
                 <h2>{{ editingEnvironmentId ? 'Edit environment' : 'Add environment' }}</h2>
                 <form @submit.prevent="submitEnvironment">
@@ -129,7 +135,7 @@ import { useStore } from '@/store';
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
-const { manageableIacs } = storeToRefs(store);
+const { manageableIacs, sessionUser } = storeToRefs(store);
 
 const appId = Number(route.params.appId);
 
